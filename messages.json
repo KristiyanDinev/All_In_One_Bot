@@ -1,0 +1,88 @@
+{
+  "activated_placeholders": ["/eph/", "/username/", "/avatar_url/", "/role_name/",
+    "/error/", "/reason/", "/blacklist_words/", "/invite/", "/channel_name/", "/bot_latency/",
+  "/number/" ,"/message/", "/datetime/"],
+  "embed_format": {
+    "avatar": {
+      "title": "/username/",
+      "color": "random",
+      "description": "",
+      "footer": "",
+      "footer_icon_url": "",
+      "image_url": "/avatar_url/",
+      "author_name": "",
+      "author_url": "",
+      "author_icon_url": "",
+      "fields": {"":  ""}
+    },
+    "invalid_member": {
+      "title": "Error",
+      "color": "rgb(255,0,0)",
+      "footer": "",
+      "footer_icon_url": "",
+      "image_url": "",
+      "author_name": "",
+      "author_url": "",
+      "author_icon_url": "",
+      "fields": {"No such":  "member"}
+    }
+  },
+  "args": {
+    "mention_member_arg": "Mention member",
+    "datetime_arg": "Mention member",
+    "mention_role_arg": "Mention role",
+    "message_arg": "Enter a message",
+    "reason_arg": "Give a reason",
+    "number_arg": "Give a number",
+    "invalid_args": "Invalid arguments /eph/",
+    "blacklist_words_arg": "Give some words seperated by comma",
+    "mention_voice_channel_arg": "Mention a voice channel",
+    "mention_text_channel_arg": "Mention a text channel",
+    "member_id_arg": "Give member id"
+
+  },
+  "commands": {
+    "avatar": {
+      "description": "Shows your avatar",
+      "args": {
+        "mention_member_arg": "this description is overritten"
+      },
+      "messages": {
+        "avatar": "This message is overritten"
+      }
+    },
+
+    "invite": {
+      "description": "Sends bot invite link"
+    }
+  },
+  "messages": {
+    "avatar": "Hello",
+    "invalid_member": "No such member",
+    "added_words_to_blacklist": "You added /blacklist_words/ to blacklist",
+    "invalid_role": "No such role",
+    "add_role": "Added role /role_name/",
+    "unknown_error": "Error! /error/",
+    "warn_member": "You warned /username/ for /reason/",
+    "view_warnings": "/username/ -> /reason/",
+    "remove_warn": "You removed warning from /username/",
+    "deafen_member": "You deafened /username/ for /reason/",
+    "undeafen_member": "You undeafened /username/ for /reason/",
+    "clear_warinings_member": "You cleared warnings for /username/ for /reason/",
+    "invite": "/invite/",
+    "kick_member": "You kicked /username/ for /reason/",
+    "move_member_to_channel": "You moved /username/ to /channel_name/",
+    "ban_member": "You banned /username/ reason: /reason/",
+    "unban_member": "You unbanned /username/",
+    "ping": "Pong /bot_latency/",
+    "removed_messages": "removed /number/ messages",
+    "say_message": "/message/",
+    "timeout_member": "You timeout /username/ for /reason/ until /datetime/",
+    "remove_timeout_member": "You removed timeout from /username/",
+    "slowmode_channel": "You activated slowmode for /channe_name/ with /number/ seconds",
+    "voice_muted_member": "You muted /username/",
+    "voice_unmute_member": "You unmuted /username/",
+    "kick_member_from_voice": "You kicked /username/"
+
+  }
+}
