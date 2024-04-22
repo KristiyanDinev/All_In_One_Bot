@@ -1,0 +1,26 @@
+
+{
+
+  "embed_format": {
+    "mymessage": {
+      "title": "/username/",
+      "color": "random",
+      "description": "",
+      "footer": "",
+      "footer_icon_url": "",
+      "image_url": "/avatar_url/",
+      "author_name": "Override",
+      "author_url": "",
+      "author_icon_url": "",
+      "fields": {"":  ""}
+    }
+  },
+
+  "messages": {
+    "mymessage": "Not Override"
+  },
+
+  "args": {
+    "mention_member_arg": "Override"
+  }
+}

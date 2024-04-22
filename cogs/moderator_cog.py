@@ -16,10 +16,10 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         self.bot = bot
         self.configManager = configManager
 
-    @app_commands.command(description=configManager.getCommandData("addrole")[configManager.wordDescription()])
-    @app_commands.describe(member=configManager.getCommandArgs("addrole", configManager.getMentionMemberKey()),
-                           role=configManager.getCommandArgs("addrole", configManager.getMentionRoleKey()),
-                           reason=configManager.getCommandArgs("addrole", configManager.getReasonKey()))
+    @app_commands.command(description=configManager.getCommandData("addrole")[""])
+    @app_commands.describe(member=configManager.getCommandArgDescription("addrole", configManager.getMentionMemberKey()),
+                           role=configManager.getCommandArgsDescription("addrole", configManager.getMentionRoleKey()),
+                           reason=configManager.getCommandArgsDescription("addrole", configManager.getReasonKey()))
     async def addrole(self, interaction: discord.Interaction, member: str, role: str, reason: str = ""):
         member_obj: discord.Member = getMember(interaction, get_member_id_from_mention(member))
         if member_obj is None:
@@ -43,10 +43,10 @@ class ModeratorCog(commands.Cog, name="Moderator"):
             placeholders = {self.configManager.getErrorPlaceholder(): e}
             await sendResponse(interaction, "addrole", self.configManager.getUnknownErrorKey(), placeholders)
 
-    @app_commands.command(description=configManager.getCommandData("removerole")[configManager.wordDescription()])
-    @app_commands.describe(member=configManager.getCommandArgs("removerole", configManager.getMentionMemberKey()),
-                           role=configManager.getCommandArgs("removerole", configManager.getMentionRoleKey()),
-                           reason=configManager.getCommandArgs("removerole", configManager.getReasonKey()))
+    @app_commands.command(description=configManager.getCommandData("removerole")[""])
+    @app_commands.describe(member=configManager.getCommandArgsDescription("removerole", configManager.getMentionMemberKey()),
+                           role=configManager.getCommandArgsDescription("removerole", configManager.getMentionRoleKey()),
+                           reason=configManager.getCommandArgsDescription("removerole", configManager.getReasonKey()))
     async def removerole(self, interaction: discord.Interaction, member: str, role: str, reason: str = ""):
         member_obj: discord.Member = getMember(interaction, get_member_id_from_mention(member))
         if member_obj is None:
@@ -73,9 +73,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
 
 
 
-    @app_commands.command(description=configManager.getCommandData("ban")[configManager.wordDescription()])
-    @app_commands.describe(member=configManager.getCommandArgs("ban", configManager.getMentionMemberKey()),
-                           reason=configManager.getCommandArgs("ban", configManager.getReasonKey()))
+    @app_commands.command(description=configManager.getCommandData("ban")[""])
+    @app_commands.describe(member=configManager.getCommandArgsDescription("ban", configManager.getMentionMemberKey()),
+                           reason=configManager.getCommandArgsDescription("ban", configManager.getReasonKey()))
     async def ban(self, interaction: discord.Interaction, member: str, reason: str):
         try:
             member = getMember(interaction, get_member_id_from_mention(member))
@@ -88,9 +88,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
             await sendResponse(interaction, "ban", self.configManager.getUnknownErrorKey(), placeholders)
 
 
-    @app_commands.command(description=configManager.getCommandData("unban")[configManager.wordDescription()])
-    @app_commands.describe(member=configManager.getCommandArgs("unban", configManager.getMentionMemberKey()),
-                           reason=configManager.getCommandArgs("unban", configManager.getReasonKey()))
+    @app_commands.command(description=configManager.getCommandData("unban")[""])
+    @app_commands.describe(member=configManager.getCommandArgsDescription("unban", configManager.getMentionMemberKey()),
+                           reason=configManager.getCommandArgsDescription("unban", configManager.getReasonKey()))
     async def unban(self, interaction: discord.Interaction, member: str, reason: str):
         try:
             member_id = int(member)

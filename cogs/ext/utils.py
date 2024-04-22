@@ -1,47 +1,18 @@
-from __future__ import annotations
-
 import discord
 import os, sys, json
 from discord.ext import commands
 from discord import app_commands, Member
 from cogs.ext.config_manager import ConfigManager
 
-configManager = ConfigManager("config", "messages", "warnings")
+configManager = ConfigManager("configs/config", "configs/messages",
+                              "configs/warnings", "configs/commands")
 
 
 async def setup(bot: commands.Bot):
     pass
 
 
-"""
-def setupCommandData(theClass):
-    res = dict()
-    for name, func in theClass.__dict__.items():
-        if name.startswith("_"):
-            continue
-        cmd_data = configManager.getCommandData(name)
-        if cmd_data is None:
-            print("You miss-configure the command " + name)
-            exit()
-
-        res[name] = cmd_data
-    return res
-
-"""
-
-
-
-async def sendResponse(interaction: discord.Interaction, command_name: str, message_key: str, placeholders: dict = dict()):
-    message: str = configManager.getCommandMessage(command_name, message_key)
-    embed = None
-    if configManager.getEmbeds() is not None and message_key in configManager.getEmbeds():
-        embed = buildEmbed(message_key, placeholders)
-
-    if message is not None:
-        for placeholder, v in placeholders.items():
-            if configManager.isActivePlaceholder(placeholder):
-                message = message.replace(placeholder, v)
-
+async def sendResponse(interaction: discord.Interaction, message, embed):
     eph = configManager.getEphPlaceholder()
 
     try:
@@ -51,16 +22,44 @@ async def sendResponse(interaction: discord.Interaction, command_name: str, mess
                                                    (message is not None and eph is not None and eph in message)
                                                 else False)
     except Exception:
-        await interaction.channel.send(message, embed=embed,
+        try:
+            await interaction.channel.send(message, embed=embed,
                                        ephemeral=True
                                        if configManager.isActivePlaceholder(eph) and
                                           (message is not None and eph is not None and eph in message)
                                        else False)
+        except Exception as e:
+            print(e)
+            pass
 
 
-def buildEmbed(message_key: str, placeholders: dict):
+def buildMessages(command_name: str, error_name: str = "", placeholders: dict = dict()):
+    if len(error_name.replace(" ", "")) > 0:
+        error_embed = buildEmbed(command_name, error_name, placeholders)
+        message: str = configManager.getCommandMessages(command_name, error_name)
+        return message, error_embed
+
+    for msg in configManager.getCommandData(command_name).get("message_names", []):
+        message: str = configManager.getCommandMessages(command_name, msg)
+        embed = None
+        if configManager.getCommandEmbeds(command_name) is not None:
+            embed = buildEmbed(command_name, msg, placeholders)
+
+        if len(message.replace(" ", "")) != 0:
+            for placeholder, v in placeholders.items():
+                if configManager.isActivePlaceholder(placeholder):
+                    message = message.replace(placeholder, v)
+        return message, embed
+
+
+async def handleMessage(interaction: discord.Interaction, command_name: str, error_name: str = "",
+                        placeholders: dict = dict()):
+    await sendResponse(interaction, *buildMessages(command_name, error_name, placeholders))
+
+
+def buildEmbed(command: str, message_key: str, placeholders: dict):
     try:
-        data: dict = configManager.getEmbeds().get(message_key)
+        data: dict = configManager.getCommandEmbeds(command, message_key)
 
         title: str = data.get(configManager.getEmbedTitle())
         author_name: str = data.get(configManager.getEmbedAuthorName())
@@ -102,7 +101,7 @@ def buildEmbed(message_key: str, placeholders: dict):
         return embed
 
     except Exception as e:
-        return discord.Embed(description=e)
+        return None
 
 
 def getMember(interaction: discord.Interaction, member_id: int) -> Member | None:

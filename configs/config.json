@@ -1,0 +1,73 @@
+{
+  "prefix": "!!!!",
+  "blacklist_words": ["hello", "there"],
+  "warning_role_id": 916952329591345185,
+  "activated_placeholders": ["/eph/", "/username/", "/avatar_url/", "/role_name/",
+    "/error/", "/reason/", "/blacklist_words/", "/invite/", "/channel_name/", "/bot_latency/",
+  "/number/" ,"/message/", "/datetime/"],
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  "discord_bot_token": ""
+}
