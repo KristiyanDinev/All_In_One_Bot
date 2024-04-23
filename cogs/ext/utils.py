@@ -12,7 +12,10 @@ async def setup(bot: commands.Bot):
     pass
 
 
-async def sendResponse(interaction: discord.Interaction, message, embed):
+async def sendResponse(interaction: discord.Interaction, message: str, embed: discord.Embed):
+    if len(message.replace(" ", "")) == 0:
+        message = None
+
     eph = configManager.getEphPlaceholder()
 
     try:
@@ -21,13 +24,10 @@ async def sendResponse(interaction: discord.Interaction, message, embed):
                                                 if configManager.isActivePlaceholder(eph) and
                                                    (message is not None and eph is not None and eph in message)
                                                 else False)
-    except Exception:
+    except Exception as e:
+        print(e)
         try:
-            await interaction.channel.send(message, embed=embed,
-                                       ephemeral=True
-                                       if configManager.isActivePlaceholder(eph) and
-                                          (message is not None and eph is not None and eph in message)
-                                       else False)
+            await interaction.channel.send(message, embed=embed)
         except Exception as e:
             print(e)
             pass
@@ -42,7 +42,7 @@ def buildMessages(command_name: str, error_name: str = "", placeholders: dict = 
     for msg in configManager.getCommandData(command_name).get("message_names", []):
         message: str = configManager.getCommandMessages(command_name, msg)
         embed = None
-        if configManager.getCommandEmbeds(command_name) is not None:
+        if configManager.getCommandEmbeds(command_name, msg) is not None:
             embed = buildEmbed(command_name, msg, placeholders)
 
         if len(message.replace(" ", "")) != 0:
@@ -109,6 +109,34 @@ def getMember(interaction: discord.Interaction, member_id: int) -> Member | None
         return None
     member = interaction.guild.get_member(member_id)
     return member
+
+
+
+async def handleInvalidMember(interaction: discord.Interaction, command: str):
+    await handleMessage(interaction, command,
+                        error_name=configManager.getInvalidMemberKey(),
+                        placeholders={configManager.getUsernamePlaceholder(): configManager.getInvalidMember()})
+
+async def handleInvalidRole(interaction: discord.Interaction, command: str):
+    await handleMessage(interaction, command,
+                        error_name=configManager.getInvalidRoleKey(),
+                        placeholders={configManager.getRoleNamePlaceholder(): configManager.getInvalidRole()})
+
+async def handleInvalidArg(interaction: discord.Interaction, command: str):
+    await handleMessage(interaction, command,
+                        error_name=configManager.getInvalidArgsKey(),
+                        placeholders={configManager.getErrorPlaceholder(): configManager.getInvalidArg()})
+
+
+async def handleErrors(interaction: discord.Interaction, command: str, error):
+    await handleMessage(interaction, command,
+                        error_name=configManager.getUnknownErrorKey(),
+                        placeholders={configManager.getErrorPlaceholder(): error})
+
+async def handleInvalidChannels(interaction: discord.Interaction, command: str):
+    await handleMessage(interaction, command,
+                        error_name=configManager.getInvalidChannelKey(),
+                        placeholders={configManager.getChannelNamePlaceholder(): configManager.getInvalidChannel()})
 
 
 def get_role_id_from_mention(role_mention: str) -> int:

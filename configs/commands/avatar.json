@@ -1,6 +1,6 @@
 {
   "embed_format": {
-    "mymessage": {
+    "mymessage2": {
       "title": "/username/",
       "color": "random",
       "description": "",
@@ -21,9 +21,9 @@
     "description": "command description"
   },
 
-  "message_names": ["mymessage"],
+  "message_names": ["mymessage2"],
 
   "messages": {
-    "mymessage": "Not Override"
+    "mymessage2": "Not Override"
   }
 }

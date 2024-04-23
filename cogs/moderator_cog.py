@@ -6,300 +6,339 @@ from cogs.ext.utils import *
 
 async def setup(bot: commands.Bot):
     # guilds=[discord.Object(id=....)]
-    await bot.add_cog(ModeratorCog(bot, configManager))
-
+    await bot.add_cog(ModeratorCog(bot))
 
 
 class ModeratorCog(commands.Cog, name="Moderator"):
 
-    def __init__(self, bot: commands.Bot, configManager: ConfigManager):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.configManager = configManager
 
-    @app_commands.command(description=configManager.getCommandData("addrole")[""])
-    @app_commands.describe(member=configManager.getCommandArgDescription("addrole", configManager.getMentionMemberKey()),
-                           role=configManager.getCommandArgsDescription("addrole", configManager.getMentionRoleKey()),
-                           reason=configManager.getCommandArgsDescription("addrole", configManager.getReasonKey()))
+    @app_commands.command(description=configManager.getCommandArgDescription("addrole", "description"))
+    @app_commands.describe(
+        member=configManager.getCommandArgDescription("addrole", configManager.getMentionMemberKey()),
+        role=configManager.getCommandArgDescription("addrole", configManager.getMentionRoleKey()),
+        reason=configManager.getCommandArgDescription("addrole", configManager.getReasonKey()))
     async def addrole(self, interaction: discord.Interaction, member: str, role: str, reason: str = ""):
         member_obj: discord.Member = getMember(interaction, get_member_id_from_mention(member))
         if member_obj is None:
-            placeholders = {self.configManager.getUsernamePlaceholder(): member}
-            await sendResponse(interaction, "addrole", self.configManager.getInvalidMemberKey(), placeholders)
+            await handleInvalidMember(interaction, "addrole")
             return
 
         role_obj = getRole(interaction, get_role_id_from_mention(role))
         if role_obj is None:
-            placeholders = {self.configManager.getRoleNamePlaceholder(): role}
-            await sendResponse(interaction, "addrole", self.configManager.getInvalidRoleKey(), placeholders)
+            await handleInvalidRole(interaction, "addrole")
             return
 
         try:
             await member_obj.add_roles(role_obj, reason=reason)
-            placeholders = {self.configManager.getRoleNamePlaceholder(): role_obj.name,
-                            self.configManager.getReasonPlaceholder(): reason}
-            await sendResponse(interaction, "addrole", self.configManager.getAddedRoleKey(), placeholders)
 
+            await handleMessage(interaction, "addrole",
+                                placeholders={configManager.getRoleNamePlaceholder(): role_obj.name,
+                                              configManager.getReasonPlaceholder(): reason})
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, "addrole", self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "addrole", e)
 
-    @app_commands.command(description=configManager.getCommandData("removerole")[""])
-    @app_commands.describe(member=configManager.getCommandArgsDescription("removerole", configManager.getMentionMemberKey()),
-                           role=configManager.getCommandArgsDescription("removerole", configManager.getMentionRoleKey()),
-                           reason=configManager.getCommandArgsDescription("removerole", configManager.getReasonKey()))
+    @app_commands.command(description=configManager.getCommandArgDescription("removerole", "description"))
+    @app_commands.describe(
+        member=configManager.getCommandArgDescription("removerole", configManager.getMentionMemberKey()),
+        role=configManager.getCommandArgDescription("removerole", configManager.getMentionRoleKey()),
+        reason=configManager.getCommandArgDescription("removerole", configManager.getReasonKey()))
     async def removerole(self, interaction: discord.Interaction, member: str, role: str, reason: str = ""):
         member_obj: discord.Member = getMember(interaction, get_member_id_from_mention(member))
         if member_obj is None:
-            placeholders = {self.configManager.getUsernamePlaceholder(): member}
-            await sendResponse(interaction, "removerole", self.configManager.getInvalidMemberKey(), placeholders)
+            await handleInvalidMember(interaction, "removerole")
             return
 
         role_obj = getRole(interaction, get_role_id_from_mention(role))
         if role_obj is None:
-            placeholders = {self.configManager.getRoleNamePlaceholder(): role}
-            await sendResponse(interaction, "removerole", self.configManager.getInvalidRoleKey(), placeholders)
+            await handleInvalidRole(interaction, "removerole")
             return
 
         try:
             await member_obj.remove_roles(role_obj, reason=reason)
-            placeholders = {self.configManager.getRoleNamePlaceholder(): role_obj.name,
-                            self.configManager.getReasonPlaceholder(): reason}
-            await sendResponse(interaction, "removerole", self.configManager.getAddedRoleKey(), placeholders)
 
+            await handleMessage(interaction, "removerole",
+                                placeholders={configManager.getRoleNamePlaceholder(): role_obj.name,
+                                              configManager.getReasonPlaceholder(): reason})
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, "removerole", self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "removerole", e)
 
-
-
-
-    @app_commands.command(description=configManager.getCommandData("ban")[""])
-    @app_commands.describe(member=configManager.getCommandArgsDescription("ban", configManager.getMentionMemberKey()),
-                           reason=configManager.getCommandArgsDescription("ban", configManager.getReasonKey()))
+    @app_commands.command(description=configManager.getCommandArgDescription("ban", "description"))
+    @app_commands.describe(member=configManager.getCommandArgDescription("ban", configManager.getMentionMemberKey()),
+                           reason=configManager.getCommandArgDescription("ban", configManager.getReasonKey()))
     async def ban(self, interaction: discord.Interaction, member: str, reason: str):
+        member = getMember(interaction, get_member_id_from_mention(member))
+
+        if member is None:
+            await handleInvalidMember(interaction, "ban")
+            return
+
         try:
-            member = getMember(interaction, get_member_id_from_mention(member))
             await member.ban(reason=reason)
-            placeholders = {self.configManager.getUsernamePlaceholder(): member.name,
-                            self.configManager.getReasonPlaceholder(): reason}
-            await sendResponse(interaction, "ban", self.configManager.getBanMemberKey(), placeholders)
+
+            await handleMessage(interaction, "ban",
+                                placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                              configManager.getReasonPlaceholder(): reason})
+
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, "ban", self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "ban", e)
 
-
-    @app_commands.command(description=configManager.getCommandData("unban")[""])
-    @app_commands.describe(member=configManager.getCommandArgsDescription("unban", configManager.getMentionMemberKey()),
-                           reason=configManager.getCommandArgsDescription("unban", configManager.getReasonKey()))
+    @app_commands.command(description=configManager.getCommandArgDescription("unban", "description"))
+    @app_commands.describe(member=configManager.getCommandArgDescription("unban", configManager.getMentionMemberKey()),
+                           reason=configManager.getCommandArgDescription("unban", configManager.getReasonKey()))
     async def unban(self, interaction: discord.Interaction, member: str, reason: str):
-        try:
-            member_id = int(member)
-            async for ban_entry in interaction.guild.bans():
-                user = ban_entry.user
-                if user.id == member_id:
+        if not member.isdigit():
+            await handleInvalidMember(interaction, "unban")
+            return
+
+        member_id = int(member)
+
+        async for ban_entry in interaction.guild.bans():
+            user = ban_entry.user
+            if user.id == member_id:
+                try:
                     await interaction.guild.unban(user, reason=reason)
-                    placeholders = {self.configManager.getUsernamePlaceholder(): user.name}
-                    await sendResponse(interaction, self.configManager.getUnbanMemberKey(), placeholders)
+
+                    await handleMessage(interaction, "unban",
+                                        placeholders={configManager.getUsernamePlaceholder(): user.name})
                     return
 
-        except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+                except Exception as e:
+                    await handleErrors(interaction, "unban", e)
 
-
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="blacklist")
-    @app_commands.describe(words=configManager.getBlacklistWordsArg())
+    @app_commands.command(description=configManager.getCommandArgDescription("blacklist", "description"))
+    @app_commands.describe(
+        words=configManager.getCommandArgDescription("blacklist", configManager.getBlacklistWordsKey()))
     async def blacklist(self, interaction: discord.Interaction, words: str):
-        words_list: list = words.split(",")
-        addWordsToBlacklist(words_list)
-        placeholders = {self.configManager.getBlacklistWordsPlaceholder(): words_list}
-        await sendResponse(interaction, self.configManager.getAddedWordsToBlacklistKey(), placeholders)
+        try:
+            words_list: list = words.split(",")
+            for i in range(len(words_list)):
+                if len(words_list[i].replace(" ", "")) == 0:
+                    words_list.pop(i)
 
+            addWordsToBlacklist(words_list)
+            await handleMessage(interaction, "blacklist",
+                                placeholders={configManager.getBlacklistWordsPlaceholder(): words_list})
 
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="deafen")
-    @app_commands.describe(member=configManager.getMentionMemberArg(), reason=configManager.getReasonArg())
+        except Exception as e:
+            await handleErrors(interaction, "blacklist", e)
+
+    @app_commands.command(description=configManager.getCommandArgDescription("deafen", "description"))
+    @app_commands.describe(member=configManager.getCommandArgDescription("deafen", configManager.getMentionMemberKey()),
+                           reason=configManager.getCommandArgDescription("deafen", configManager.getReasonKey()))
     async def deafen(self, interaction: discord.Interaction, member: str, reason: str = ""):
+        member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
+        if member is None:
+            await handleInvalidMember(interaction, "deafen")
+            return
+
         try:
-            member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
             await member.edit(deafen=True, reason=reason)
-            placeholders = {self.configManager.getUsernamePlaceholder(): member.name,
-                            self.configManager.getReasonPlaceholder(): reason}
 
-            await sendResponse(interaction, self.configManager.getDeafenKey(), placeholders)
+            await handleMessage(interaction, "deafen",
+                                placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                              configManager.getReasonPlaceholder(): reason})
 
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "deafen", e)
 
-
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="undeafen")
-    @app_commands.describe(member=configManager.getMentionMemberArg(), reason=configManager.getReasonArg())
+    @app_commands.command(description=configManager.getCommandArgDescription("undeafen", "description"))
+    @app_commands.describe(
+        member=configManager.getCommandArgDescription("undeafen", configManager.getMentionMemberKey()),
+        reason=configManager.getCommandArgDescription("undeafen", configManager.getReasonKey()))
     async def undeafen(self, interaction: discord.Interaction, member: str, reason: str = ""):
+        member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
+        if member is None:
+            await handleInvalidMember(interaction, "undeafen")
+            return
+
         try:
-            member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
             await member.edit(deafen=False, reason=reason)
-            placeholders = {self.configManager.getUsernamePlaceholder(): member.name,
-                            self.configManager.getReasonPlaceholder(): reason}
 
-            await sendResponse(interaction, self.configManager.getDeafenKey(), placeholders)
+            await handleMessage(interaction, "undeafen",
+                                placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                              configManager.getReasonPlaceholder(): reason})
 
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "undeafen", e)
 
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="kick")
-    @app_commands.describe(member=configManager.getMentionMemberArg(), reason=configManager.getReasonArg())
+    @app_commands.command(description=configManager.getCommandArgDescription("kick", "description"))
+    @app_commands.describe(member=configManager.getCommandArgDescription("kick", configManager.getMentionMemberKey()),
+                           reason=configManager.getCommandArgDescription("kick", configManager.getReasonKey()))
     async def kick(self, interaction: discord.Interaction, member: str, reason: str = ""):
+        member = getMember(interaction, get_member_id_from_mention(member))
+        if member is None:
+            await handleInvalidMember(interaction, "kick")
+            return
+
         try:
-            member = getMember(interaction, get_member_id_from_mention(member))
             await member.kick(reason=reason)
-            placeholders = {configManager.getUsernamePlaceholder(): member.name,
-                            configManager.getReasonPlaceholder(): reason}
-            await sendResponse(interaction, self.configManager.getClearWarningsMemberKey(), placeholders)
+
+            await handleMessage(interaction, "kick",
+                                placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                              configManager.getReasonPlaceholder(): reason})
 
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "kick", e)
 
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="move")
-    @app_commands.describe(member=configManager.getMentionMemberArg(),
-                           channel=configManager.getMentionVoiceChannelArg(),
-                           reason=configManager.getReasonArg())
-    async def move(self, interaction: discord.Interaction, member: str, channel: str, reason: str = ""):
+    @app_commands.command(description=configManager.getCommandArgDescription("move", "description"))
+    @app_commands.describe(member_mention=configManager.getCommandArgDescription("move", configManager.getMentionMemberKey()),
+                           channel_mention=configManager.getCommandArgDescription("move",
+                                                                          configManager.getMentionVoiceChannelKey()),
+                           reason=configManager.getCommandArgDescription("move", configManager.getReasonKey()))
+    async def move(self, interaction: discord.Interaction, member_mention: str, channel_mention: str, reason: str = ""):
+        channel = getVoiceChannel(interaction, get_channel_id_from_mention(channel_mention))
+        if channel is None:
+            await handleInvalidChannels(interaction, "move")
+            return
+
+        member = getMember(interaction, get_member_id_from_mention(member_mention))
+        if member is None:
+            await handleInvalidMember(interaction, "move")
+            return
+
         try:
-            channel = getVoiceChannel(interaction, get_channel_id_from_mention(channel))
-            member = getMember(interaction, get_member_id_from_mention(member))
             await member.move_to(channel, reason=reason)
-            placeholders = {configManager.getUsernamePlaceholder(): member.name,
-                            configManager.getChannelNamePlaceholder(): channel.name,
-                            configManager.getReasonPlaceholder(): reason}
-            await sendResponse(interaction, self.configManager.getMoveMemberToChannelKey(), placeholders)
+            await handleMessage(interaction, "move",
+                                placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                              configManager.getChannelNamePlaceholder(): channel.name,
+                                              configManager.getReasonPlaceholder(): reason})
 
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "move", e)
 
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="clear")
-    @app_commands.describe(number=configManager.getNumberArg())
+    @app_commands.command(description=configManager.getCommandArgDescription("clear", "description"))
+    @app_commands.describe(number=configManager.getCommandArgDescription("clear", configManager.getNumberKey()))
     async def clear(self, interaction: discord.Interaction, number: str):
         try:
             await interaction.channel.purge(limit=int(number))
 
-            placeholders = {configManager.getRemoveMessagesKey(): number}
-            await sendResponse(interaction, self.configManager.getMoveMemberToChannelKey(), placeholders)
+            await handleMessage(interaction, "clear",
+                                placeholders={configManager.getRemoveMessagesKey(): number})
 
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "clear", e)
 
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="say")
-    @app_commands.describe(message=configManager.getEnterMessageArg())
+    @app_commands.command(description=configManager.getCommandArgDescription("say", "description"))
+    @app_commands.describe(message=configManager.getCommandArgDescription("clear", configManager.getEnterMessageKey()))
     async def say(self, interaction: discord.Interaction, message: str):
         try:
-            placeholders = {configManager.getMessagePlaceholder(): message}
-            await sendResponse(interaction, self.configManager.getSayMessageKey(), placeholders)
+            await handleMessage(interaction, "say",
+                                placeholders={configManager.getMessagePlaceholder(): message})
 
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "say", e)
 
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="timeout")
-    @app_commands.describe(member=configManager.getMentionMemberArg(),
-                           until=configManager.getDatetimeArg(), reason=configManager.getReasonArg())
+    @app_commands.command(description=configManager.getCommandArgDescription("timeout", "description"))
+    @app_commands.describe(
+        member=configManager.getCommandArgDescription("timeout", configManager.getMentionMemberKey()),
+        until=configManager.getCommandArgDescription("timeout", configManager.getDatetimeKey()),
+        reason=configManager.getCommandArgDescription("timeout", configManager.getReasonKey()))
     async def timeout(self, interaction: discord.Interaction, member: str, until: str, reason: str = ""):
+        member = getMember(interaction, get_member_id_from_mention(member))
+        if member is None:
+            await handleInvalidMember(interaction, "timeout")
+            return
+
         try:
-            member = getMember(interaction, get_member_id_from_mention(member))
             await member.timeout(datetime.datetime.strptime(until, "YYYY-MM-DDTHH:MM:SS"), reason=reason)
 
-            placeholders = {configManager.getUsernamePlaceholder(): member.name,
-                            configManager.getReasonPlaceholder(): reason,
-                            configManager.getDatetimePlaceholder(): until}
-            await sendResponse(interaction, self.configManager.getTimeoutMemberKey(), placeholders)
+            await handleMessage(interaction, "timeout",
+                                placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                              configManager.getReasonPlaceholder(): reason,
+                                              configManager.getDatetimePlaceholder(): until})
 
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "timeout", e)
 
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="removetimeout")
-    @app_commands.describe(member=configManager.getMentionMemberArg())
+
+    @app_commands.command(description=configManager.getCommandArgDescription("removetimeout", "description"))
+    @app_commands.describe(member=configManager.getCommandArgDescription("removetimeout", configManager.getMentionMemberKey()))
     async def removetimeout(self, interaction: discord.Interaction, member: str):
+        member = getMember(interaction, get_member_id_from_mention(member))
+        if member is None:
+            await handleInvalidMember(interaction, "removetimeout")
+            return
+
         try:
-            member = getMember(interaction, get_member_id_from_mention(member))
             await member.edit(timed_out_until=None)
 
-            placeholders = {configManager.getUsernamePlaceholder(): member.name}
-            await sendResponse(interaction, self.configManager.getRemoveTimeoutMemberKey(), placeholders)
+            await handleMessage(interaction, "removetimeout",
+                               placeholders={configManager.getUsernamePlaceholder(): member.name})
 
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "removetimeout", e)
 
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="slowmode")
-    @app_commands.describe(seconds=configManager.getNumberArg())
+
+    @app_commands.command(description=configManager.getCommandArgDescription("slowmode", "description"))
+    @app_commands.describe(seconds=configManager.getCommandArgDescription("slowmode", configManager.getNumberKey()))
     async def slowmode(self, interaction: discord.Interaction, seconds: str):
         # ctx.channel.edit(slowmode_delay=seconds)
+
+        if not seconds.isdigit():
+            await handleInvalidArg(interaction, "slowmode")
+            return
+
         try:
             await interaction.channel.edit(slowmode_delay=int(seconds))
 
-            placeholders = {configManager.getChannelNamePlaceholder(): interaction.channel.name,
-                            configManager.getNumberPlaceholder(): seconds}
-            await sendResponse(interaction, self.configManager.getSlowmodeChannelKey(), placeholders)
+            await handleMessage(interaction, "slowmode",
+                                placeholders={configManager.getChannelNamePlaceholder(): interaction.channel.name,
+                            configManager.getNumberPlaceholder(): seconds})
 
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "slowmode", e)
 
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="vmute")
-    @app_commands.describe(member=configManager.getMentionMemberArg())
+
+    @app_commands.command(description=configManager.getCommandArgDescription("vmute", "description"))
+    @app_commands.describe(member=configManager.getCommandArgDescription("vmute", configManager.getMentionMemberKey()))
     async def vmute(self, interaction: discord.Interaction, member: str):
+        member = getMember(interaction, get_member_id_from_mention(member))
+        if member is None:
+            await handleInvalidMember(interaction, "vmute")
+            return
+
         try:
-            member = getMember(interaction, get_member_id_from_mention(member))
             await member.edit(mute=True)
 
-            placeholders = {configManager.getUsernamePlaceholder(): member.name}
-            await sendResponse(interaction, self.configManager.getVoiceMuteMemberKey(), placeholders)
+            await handleMessage(interaction, "vmute",
+                                placeholders={configManager.getUsernamePlaceholder(): member.name})
 
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "vmute", e)
 
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="vunmute")
-    @app_commands.describe(member=configManager.getMentionMemberArg())
+
+    @app_commands.command(description=configManager.getCommandArgDescription("vunmute", "description"))
+    @app_commands.describe(member=configManager.getCommandArgDescription("vunmute", configManager.getMentionMemberKey()))
     async def vunmute(self, interaction: discord.Interaction, member: str):
+        member = getMember(interaction, get_member_id_from_mention(member))
+        if member is None:
+            await handleInvalidMember(interaction, "vunmute")
+            return
+
         try:
-            member = getMember(interaction, get_member_id_from_mention(member))
             await member.edit(mute=False)
 
-            placeholders = {configManager.getUsernamePlaceholder(): member.name}
-            await sendResponse(interaction, self.configManager.getVoiceUnmuteMemberKey(), placeholders)
-
+            await handleMessage(interaction, "vunmute",
+                                placeholders={configManager.getUsernamePlaceholder(): member.name})
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "vunmute", e)
 
-    @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="vkick")
-    @app_commands.describe(member=configManager.getMentionMemberArg())
+
+    @app_commands.command(description=configManager.getCommandArgDescription("vkick", "description"))
+    @app_commands.describe(member=configManager.getCommandArgDescription("vkick", configManager.getMentionMemberKey()))
     async def vkick(self, interaction: discord.Interaction, member: str):
+        member = getMember(interaction, get_member_id_from_mention(member))
+        if member is None:
+            await handleInvalidMember(interaction, "vkick")
+            return
+
         try:
-            member = getMember(interaction, get_member_id_from_mention(member))
             await member.move_to(None)
 
-            placeholders = {configManager.getUsernamePlaceholder(): member.name}
-            await sendResponse(interaction, self.configManager.getKickFromVoiceKey(), placeholders)
+            await handleMessage(interaction, "vkick",
+                               placeholders={configManager.getUsernamePlaceholder(): member.name})
 
         except Exception as e:
-            placeholders = {self.configManager.getErrorPlaceholder(): e}
-            await sendResponse(interaction, self.configManager.getUnknownErrorKey(), placeholders)
+            await handleErrors(interaction, "vkick", e)

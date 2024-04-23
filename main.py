@@ -169,6 +169,9 @@ if __name__ == "__main__":
   },
 
   "messages": {
+  
+  invalid_channel
+  
     "avatar": "Hello",
     "invalid_member": "No such member",
     "added_words_to_blacklist": "You added /blacklist_words/ to blacklist",

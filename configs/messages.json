@@ -9,7 +9,7 @@
       "footer": "",
       "footer_icon_url": "",
       "image_url": "/avatar_url/",
-      "author_name": "Override",
+      "author_name": "Override Embed",
       "author_url": "",
       "author_icon_url": "",
       "fields": {"":  ""}
@@ -17,7 +17,7 @@
   },
 
   "messages": {
-    "mymessage": "Not Override"
+    "mymessage": "Override Message"
   },
 
   "args": {

@@ -21,9 +21,7 @@ class UtilsCog(commands.Cog, name="Utils"):
             member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
 
         if member is None:
-            placeholders = {configManager.getUsernamePlaceholder(): "invalid username"}
-            await handleMessage(interaction, "avatar", error_name=configManager.getInvalidMemberKey(),
-                                placeholders=placeholders)
+            await handleInvalidMember(interaction, "avatar")
             return
 
         placeholders = {configManager.getUsernamePlaceholder(): member.name,
@@ -48,5 +46,5 @@ class UtilsCog(commands.Cog, name="Utils"):
 
     @app_commands.command(description=configManager.getCommandArgDescription("ping", "description"))
     async def ping(self, interaction: discord.Interaction):
-        await handleMessage(interaction, "ping", configManager.getPingKey(),
+        await handleMessage(interaction, "ping",
                             placeholders={configManager.getBotLatencyPlaceholder(): str(round(self.bot.latency, 1))})

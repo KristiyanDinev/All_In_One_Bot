@@ -31,20 +31,46 @@ class ConfigManager:
     def getCommandArgDescription(self, command_name, argument):
         res = self.messages.get("args", {}).get(argument, None)
         if res is None:
-            return self.getCommandData(command_name).get("args", {}).get(argument, None)
+            res = self.getCommandData(command_name).get("args", {}).get(argument, None)
+            if res is None:
+                return argument +" argument for command "+ command_name+" is not define"
+            else:
+                return res
+        else:
+            return res
 
     def getCommandEmbeds(self, command: str, message: str):
         res = self.messages.get("embed_format", {}).get(message, None)
         if res is None:
             return self.getCommandData(command).get("embed_format", {}).get(message, None)
+        else:
+            return res
 
     def getCommandMessages(self, command_name, message):
         res = self.messages.get("messages", {}).get(message, "")
         if len(res.replace(" ", "")) == 0:
             return self.getCommandData(command_name).get("messages", {}).get("message", "")
+        else:
+            return res
 
     def getCommandActiveMessages(self, command_name):
-        return self.getCommandData(command_name).get("")
+        return self.getCommandData(command_name).get("message_names", [])
+
+
+    def getInvalidMember(self):
+        return "Invalid Member"
+
+    def getInvalidRole(self):
+        return "Invalid Role"
+
+    def getInvalidChannel(self):
+        return "Invalid Channel"
+
+    def getInvalidArg(self):
+        return "Invalid Arg"
+
+    def getInvalidChannelKey(self):
+        return "invalid_channel"
 
     def getInvalidArgsKey(self):
         return "invalid_args"
