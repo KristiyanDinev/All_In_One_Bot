@@ -23,7 +23,5 @@
 
   "message_names": ["mymessage2"],
 
-  "messages": {
-    "mymessage2": "Not Override"
-  }
+  "messages": {}
 }

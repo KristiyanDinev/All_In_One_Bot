@@ -100,6 +100,15 @@ async def sync(ctx):
     print(f"Synced {len(synced)} command(s).")
     await ctx.send(f"Synced {len(synced)} command(s).")
 
+@bot.command()
+async def reload(ctx: discord.ext.commands.context.Context):
+    if await handleRestrictedCtx(ctx, "reload"):
+        return
+
+    configManager.reloadConfig()
+    await handleMessageCtx(ctx, "reload")
+
+
 
 if __name__ == "__main__":
     token = configManager.getBotToken()
@@ -201,5 +210,24 @@ if __name__ == "__main__":
 
   }
 */
+
+
+"command_restriction": {
+    "avatar": {"roles_id":  [1111], "users_id":  [3131], "channels_id":  [123131]},
+    "say": {"all": true}
+  },
+
+
+command_permissions -> who can use what command and where?
+
+key -> command name
+value -> dict data
+ |-> "any_roles_id": list of role ids that the user MUST have at least one to use this command 
+ |-> "all_roles_id": list of role ids that the user MUST have all of them to use this command 
+ |-> "users_id": list of users that can use this command
+ |-> "channels_id": list of channels that this command can be only be used in
+ |-> "all": Should the command be allowed for everyone or be restricted | true -> everyone . false -> restricted
+ 
+
 
 """

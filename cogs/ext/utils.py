@@ -33,10 +33,35 @@ async def sendResponse(interaction: discord.Interaction, message: str, embed: di
             pass
 
 
+async def sendResponseCtx(ctx: discord.ext.commands.context.Context, message: str, embed: discord.Embed):
+    if len(message.replace(" ", "")) == 0:
+        message = None
+
+    eph = configManager.getEphPlaceholder()
+
+    try:
+        await ctx.reply(message, embed=embed,
+                        ephemeral=True
+                        if configManager.isActivePlaceholder(eph) and
+                           (message is not None and eph is not None and eph in message)
+                        else False)
+    except Exception as e:
+        print(e)
+        try:
+            await ctx.send(message, embed=embed)
+        except Exception as e:
+            print(e)
+            pass
+
+
 def buildMessages(command_name: str, error_name: str = "", placeholders: dict = dict()):
     if len(error_name.replace(" ", "")) > 0:
         error_embed = buildEmbed(command_name, error_name, placeholders)
         message: str = configManager.getCommandMessages(command_name, error_name)
+        if len(message.replace(" ", "")) != 0:
+            for placeholder, v in placeholders.items():
+                if configManager.isActivePlaceholder(placeholder):
+                    message = message.replace(placeholder, v)
         return message, error_embed
 
     for msg in configManager.getCommandData(command_name).get("message_names", []):
@@ -55,6 +80,11 @@ def buildMessages(command_name: str, error_name: str = "", placeholders: dict = 
 async def handleMessage(interaction: discord.Interaction, command_name: str, error_name: str = "",
                         placeholders: dict = dict()):
     await sendResponse(interaction, *buildMessages(command_name, error_name, placeholders))
+
+
+async def handleMessageCtx(ctx: discord.ext.commands.context.Context, command_name: str, error_name: str = "",
+                           placeholders: dict = dict()):
+    await sendResponseCtx(ctx, *buildMessages(command_name, error_name, placeholders))
 
 
 def buildEmbed(command: str, message_key: str, placeholders: dict):
@@ -111,16 +141,17 @@ def getMember(interaction: discord.Interaction, member_id: int) -> Member | None
     return member
 
 
-
 async def handleInvalidMember(interaction: discord.Interaction, command: str):
     await handleMessage(interaction, command,
                         error_name=configManager.getInvalidMemberKey(),
                         placeholders={configManager.getUsernamePlaceholder(): configManager.getInvalidMember()})
 
+
 async def handleInvalidRole(interaction: discord.Interaction, command: str):
     await handleMessage(interaction, command,
                         error_name=configManager.getInvalidRoleKey(),
                         placeholders={configManager.getRoleNamePlaceholder(): configManager.getInvalidRole()})
+
 
 async def handleInvalidArg(interaction: discord.Interaction, command: str):
     await handleMessage(interaction, command,
@@ -132,6 +163,7 @@ async def handleErrors(interaction: discord.Interaction, command: str, error):
     await handleMessage(interaction, command,
                         error_name=configManager.getUnknownErrorKey(),
                         placeholders={configManager.getErrorPlaceholder(): error})
+
 
 async def handleInvalidChannels(interaction: discord.Interaction, command: str):
     await handleMessage(interaction, command,
@@ -187,3 +219,123 @@ def addWarningToConfig(user_id: str, reason: str):
 def removeWarningFromConfig(user_id: str):
     configManager.warning_data.pop(user_id)
     configManager.saveWarningsJSON()
+
+
+def isUserRestricted(interaction: discord.Interaction, commandName: str) -> str:
+    res = configManager.getCommandRestrictions(commandName)
+    reason = ""
+    if res.get("all", None) is not None:
+        if res.get("all"):
+            return reason
+        else:
+            reason += "all;"
+
+    usersId: list = res.get("users_id", None)
+    userRestricted = False
+    if usersId is not None:
+        userRestricted = interaction.user.id not in usersId
+        if userRestricted:
+            reason += "user id;"
+
+    userRoles = interaction.user.roles
+    userRoleId = []
+    for role in userRoles:
+        userRoleId.append(role.id)
+    anyRolesId: list = res.get("any_roles_id", None)
+    if anyRolesId is not None:
+        for rId in anyRolesId:
+            if rId in userRoleId:
+                userRestricted = False
+                break
+        if not userRestricted:
+            reason += "any roles;"
+
+    allRolesId: list = res.get("all_roles_id", None)
+    if allRolesId is not None:
+        hasAllRoles = False
+        for roleId in allRolesId:
+            if roleId in userRoleId:
+                hasAllRoles = True
+            else:
+                hasAllRoles = False
+                break
+
+        if not hasAllRoles:
+            reason += "all roles;"
+
+    channels_id = res.get("channels_id", None)
+    if channels_id is not None and not interaction.channel.id in channels_id:
+        reason += "channel id;"
+
+    return reason
+
+
+def isUserRestrictedCtx(ctx: discord.ext.commands.context.Context, commandName: str) -> str:
+    res = configManager.getCommandRestrictions(commandName)
+    reason = ""
+    if res.get("all", None) is not None:
+        if res.get("all"):
+            return reason
+        else:
+            reason += "all;"
+
+    usersId: list = res.get("users_id", None)
+    userRestricted = False
+    if usersId is not None:
+        userRestricted = ctx.author.id not in usersId
+        if userRestricted:
+            reason += "user id;"
+
+    userRoles = ctx.author.roles
+    anyRolesId: list = res.get("any_roles_id", None)
+    userRoleId = []
+    for role in userRoles:
+        userRoleId.append(role.id)
+    if anyRolesId is not None:
+        for rId in anyRolesId:
+            if rId in userRoleId:
+                userRestricted = False
+                break
+        if not userRestricted:
+            reason += "any roles;"
+
+    allRolesId: list = res.get("all_roles_id", None)
+    if allRolesId is not None:
+        hasAllRoles = False
+        for roleId in allRolesId:
+            if roleId in userRoleId:
+                hasAllRoles = True
+            else:
+                hasAllRoles = False
+                break
+
+        if hasAllRoles:
+            reason += "all roles;"
+
+    channels_id = res.get("channels_id", None)
+    if channels_id is not None and not ctx.channel.id in channels_id:
+        reason += "channel id;"
+
+    return reason
+
+
+async def handleRestricted(interaction: discord.Interaction, commandName: str) -> bool:
+    reason = isUserRestricted(interaction, commandName)
+    if len(reason) > 0:
+        await handleMessage(interaction, commandName,
+                            error_name=configManager.getRestrictedKey(),
+                            placeholders={configManager.getReasonPlaceholder(): reason})
+
+        return True
+    return False
+
+
+async def handleRestrictedCtx(ctx: discord.ext.commands.context.Context, commandName: str) -> bool:
+    reason = isUserRestrictedCtx(ctx, commandName)
+    if len(reason) > 0:
+        await handleMessageCtx(ctx, commandName,
+                               error_name=configManager.getRestrictedKey(),
+                               placeholders={configManager.getReasonPlaceholder(): reason})
+
+        return True
+    return False

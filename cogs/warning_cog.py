@@ -15,6 +15,9 @@ class WarningsCommands(commands.Cog, name="WarningsCommands"):
     @app_commands.describe(member=configManager.getCommandArgDescription("warn", configManager.getMentionMemberKey()),
                            reason=configManager.getCommandArgDescription("warn", configManager.getReasonKey()))
     async def warn(self, interaction: discord.Interaction, member: str, reason: str):
+        if await handleRestricted(interaction, "warn"):
+            return
+
         member = getMember(interaction, get_member_id_from_mention(member))
         if member is None:
             await handleInvalidMember(interaction, "warn")
@@ -42,6 +45,9 @@ class WarningsCommands(commands.Cog, name="WarningsCommands"):
     @app_commands.describe(
         member=configManager.getCommandArgDescription("warnings", configManager.getMentionMemberKey()))
     async def warnings(self, interaction: discord.Interaction, member: str):
+        if await handleRestricted(interaction, "warnings"):
+            return
+
         member = getMember(interaction, get_member_id_from_mention(member))
         if member is None:
             await handleInvalidMember(interaction, "warnings")
@@ -71,6 +77,9 @@ class WarningsCommands(commands.Cog, name="WarningsCommands"):
     @app_commands.describe(member=configManager.getCommandArgDescription("clearwarnings", configManager.getMentionMemberKey()),
                            reason=configManager.getCommandArgDescription("clearwarnings", configManager.getReasonKey()))
     async def clearwarnings(self, interaction: discord.Interaction, member: str, reason: str = ""):
+        if await handleRestricted(interaction, "clearwarnings"):
+            return
+
         member = getMember(interaction, get_member_id_from_mention(member))
         if member is None:
             await handleInvalidMember(interaction, "warnings")

@@ -15,6 +15,9 @@ class UtilsCog(commands.Cog, name="Utils"):
     @app_commands.command(description=configManager.getCommandArgDescription("avatar", "description"))
     @app_commands.describe(member=configManager.getCommandArgDescription("avatar", configManager.getMentionMemberKey()))
     async def avatar(self, interaction: discord.Interaction, member: str = ""):
+        if await handleRestricted(interaction, "avatar"):
+            return
+
         if member == "":
             member: discord.Member = interaction.user
         else:
@@ -32,6 +35,9 @@ class UtilsCog(commands.Cog, name="Utils"):
     @app_commands.describe(bot_id=configManager.getCommandArgDescription("invite", configManager.getMemberIDKey()),
                            permissions=configManager.getCommandArgDescription("invite", configManager.getNumberKey()))
     async def invite(self, interaction: discord.Interaction, bot_id: str, permissions: str):
+        if await handleRestricted(interaction, "invite"):
+            return
+
         if not bot_id.isdigit() or not permissions.isdigit():
             await handleMessage(interaction, "invite", error_name=configManager.getInvalidArgsKey(),
                                 placeholders={
@@ -46,5 +52,9 @@ class UtilsCog(commands.Cog, name="Utils"):
 
     @app_commands.command(description=configManager.getCommandArgDescription("ping", "description"))
     async def ping(self, interaction: discord.Interaction):
+        if await handleRestricted(interaction, "ping"):
+            return
+
         await handleMessage(interaction, "ping",
                             placeholders={configManager.getBotLatencyPlaceholder(): str(round(self.bot.latency, 1))})
+

@@ -13,6 +13,35 @@ class ConfigManager:
         self.data = self._readJSON(file_path)
         self.messages = self._readJSON(messages_path)
 
+    def saveCommandJSON(self, command: str, command_data: dict) -> None:
+        self._saveJSON(self.command_folder+"/"+command+".json", command_data)
+
+    def saveConfigJSON(self) -> None:
+        self._saveJSON(self.config_path, self.data)
+
+    def saveWarningsJSON(self) -> None:
+        self._saveJSON(self.warning_path, self.warning_data)
+
+    def saveMessagesJSON(self) -> None:
+        self._saveJSON(self.message_path, self.messages)
+
+    def _saveJSON(self, output_file_name, data) -> None:
+        open(output_file_name + ".json", "a")
+        with open(output_file_name + ".json", "w") as jsonfile:
+            json.dump(data, jsonfile, indent=4)
+
+    def _readJSON(self, file_name) -> dict:
+        if not os.path.exists(file_name + ".json"):
+            return {}
+
+        with open(file_name + ".json", "r") as jsonfile:
+            return json.load(jsonfile)
+
+    def reloadConfig(self):
+        self.warning_data = self._readJSON(self.warning_path)
+        self.data = self._readJSON(self.config_path)
+        self.messages = self._readJSON(self.message_path)
+
     def getBotToken(self):
         return self.data.get("discord_bot_token")
 
@@ -30,14 +59,17 @@ class ConfigManager:
 
     def getCommandArgDescription(self, command_name, argument):
         res = self.messages.get("args", {}).get(argument, None)
+        if res is not None:
+            return res
+
+        res = self.getCommandData(command_name).get("args", {}).get(argument, None)
         if res is None:
-            res = self.getCommandData(command_name).get("args", {}).get(argument, None)
-            if res is None:
-                return argument +" argument for command "+ command_name+" is not define"
-            else:
-                return res
+            return argument +" argument for command "+ command_name+" is not define"
         else:
             return res
+
+    def getCommandRestrictions(self, command_name):
+        return self.data.get("command_restriction", {}).get(command_name, {})
 
     def getCommandEmbeds(self, command: str, message: str):
         res = self.messages.get("embed_format", {}).get(message, None)
@@ -49,7 +81,7 @@ class ConfigManager:
     def getCommandMessages(self, command_name, message):
         res = self.messages.get("messages", {}).get(message, "")
         if len(res.replace(" ", "")) == 0:
-            return self.getCommandData(command_name).get("messages", {}).get("message", "")
+            return self.getCommandData(command_name).get("messages", {}).get(message, "")
         else:
             return res
 
@@ -71,6 +103,9 @@ class ConfigManager:
 
     def getInvalidChannelKey(self):
         return "invalid_channel"
+
+    def getRestrictedKey(self):
+        return "restricted"
 
     def getInvalidArgsKey(self):
         return "invalid_args"
@@ -185,30 +220,6 @@ class ConfigManager:
 
     def getMessagePlaceholder(self):
         return "/message/"
-
-    def saveCommandJSON(self, command: str, command_data: dict) -> None:
-        self._saveJSON(self.command_folder+"/"+command+".json", command_data)
-
-    def saveConfigJSON(self) -> None:
-        self._saveJSON(self.config_path, self.data)
-
-    def saveWarningsJSON(self) -> None:
-        self._saveJSON(self.warning_path, self.warning_data)
-
-    def saveMessagesJSON(self) -> None:
-        self._saveJSON(self.message_path, self.messages)
-
-    def _saveJSON(self, output_file_name, data) -> None:
-        open(output_file_name + ".json", "a")
-        with open(output_file_name + ".json", "w") as jsonfile:
-            json.dump(data, jsonfile, indent=4)
-
-    def _readJSON(self, file_name) -> dict:
-        if not os.path.exists(file_name + ".json"):
-            return {}
-
-        with open(file_name + ".json", "r") as jsonfile:
-            return json.load(jsonfile)
 
 
 """

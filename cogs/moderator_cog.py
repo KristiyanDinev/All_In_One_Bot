@@ -20,6 +20,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         role=configManager.getCommandArgDescription("addrole", configManager.getMentionRoleKey()),
         reason=configManager.getCommandArgDescription("addrole", configManager.getReasonKey()))
     async def addrole(self, interaction: discord.Interaction, member: str, role: str, reason: str = ""):
+        if await handleRestricted(interaction, "addrole"):
+            return
+
         member_obj: discord.Member = getMember(interaction, get_member_id_from_mention(member))
         if member_obj is None:
             await handleInvalidMember(interaction, "addrole")
@@ -45,6 +48,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         role=configManager.getCommandArgDescription("removerole", configManager.getMentionRoleKey()),
         reason=configManager.getCommandArgDescription("removerole", configManager.getReasonKey()))
     async def removerole(self, interaction: discord.Interaction, member: str, role: str, reason: str = ""):
+        if await handleRestricted(interaction, "removerole"):
+            return
+
         member_obj: discord.Member = getMember(interaction, get_member_id_from_mention(member))
         if member_obj is None:
             await handleInvalidMember(interaction, "removerole")
@@ -68,8 +74,10 @@ class ModeratorCog(commands.Cog, name="Moderator"):
     @app_commands.describe(member=configManager.getCommandArgDescription("ban", configManager.getMentionMemberKey()),
                            reason=configManager.getCommandArgDescription("ban", configManager.getReasonKey()))
     async def ban(self, interaction: discord.Interaction, member: str, reason: str):
-        member = getMember(interaction, get_member_id_from_mention(member))
+        if await handleRestricted(interaction, "ban"):
+            return
 
+        member = getMember(interaction, get_member_id_from_mention(member))
         if member is None:
             await handleInvalidMember(interaction, "ban")
             return
@@ -88,6 +96,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
     @app_commands.describe(member=configManager.getCommandArgDescription("unban", configManager.getMentionMemberKey()),
                            reason=configManager.getCommandArgDescription("unban", configManager.getReasonKey()))
     async def unban(self, interaction: discord.Interaction, member: str, reason: str):
+        if await handleRestricted(interaction, "unban"):
+            return
+
         if not member.isdigit():
             await handleInvalidMember(interaction, "unban")
             return
@@ -111,6 +122,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
     @app_commands.describe(
         words=configManager.getCommandArgDescription("blacklist", configManager.getBlacklistWordsKey()))
     async def blacklist(self, interaction: discord.Interaction, words: str):
+        if await handleRestricted(interaction, "blacklist"):
+            return
+
         try:
             words_list: list = words.split(",")
             for i in range(len(words_list)):
@@ -128,6 +142,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
     @app_commands.describe(member=configManager.getCommandArgDescription("deafen", configManager.getMentionMemberKey()),
                            reason=configManager.getCommandArgDescription("deafen", configManager.getReasonKey()))
     async def deafen(self, interaction: discord.Interaction, member: str, reason: str = ""):
+        if await handleRestricted(interaction, "deafen"):
+            return
+
         member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
         if member is None:
             await handleInvalidMember(interaction, "deafen")
@@ -148,6 +165,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         member=configManager.getCommandArgDescription("undeafen", configManager.getMentionMemberKey()),
         reason=configManager.getCommandArgDescription("undeafen", configManager.getReasonKey()))
     async def undeafen(self, interaction: discord.Interaction, member: str, reason: str = ""):
+        if await handleRestricted(interaction, "undeafen"):
+            return
+
         member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
         if member is None:
             await handleInvalidMember(interaction, "undeafen")
@@ -167,6 +187,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
     @app_commands.describe(member=configManager.getCommandArgDescription("kick", configManager.getMentionMemberKey()),
                            reason=configManager.getCommandArgDescription("kick", configManager.getReasonKey()))
     async def kick(self, interaction: discord.Interaction, member: str, reason: str = ""):
+        if await handleRestricted(interaction, "kick"):
+            return
+
         member = getMember(interaction, get_member_id_from_mention(member))
         if member is None:
             await handleInvalidMember(interaction, "kick")
@@ -188,6 +211,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
                                                                           configManager.getMentionVoiceChannelKey()),
                            reason=configManager.getCommandArgDescription("move", configManager.getReasonKey()))
     async def move(self, interaction: discord.Interaction, member_mention: str, channel_mention: str, reason: str = ""):
+        if await handleRestricted(interaction, "move"):
+            return
+
         channel = getVoiceChannel(interaction, get_channel_id_from_mention(channel_mention))
         if channel is None:
             await handleInvalidChannels(interaction, "move")
@@ -211,6 +237,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
     @app_commands.command(description=configManager.getCommandArgDescription("clear", "description"))
     @app_commands.describe(number=configManager.getCommandArgDescription("clear", configManager.getNumberKey()))
     async def clear(self, interaction: discord.Interaction, number: str):
+        if await handleRestricted(interaction, "clear"):
+            return
+
         try:
             await interaction.channel.purge(limit=int(number))
 
@@ -223,6 +252,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
     @app_commands.command(description=configManager.getCommandArgDescription("say", "description"))
     @app_commands.describe(message=configManager.getCommandArgDescription("clear", configManager.getEnterMessageKey()))
     async def say(self, interaction: discord.Interaction, message: str):
+        if await handleRestricted(interaction, "say"):
+            return
+
         try:
             await handleMessage(interaction, "say",
                                 placeholders={configManager.getMessagePlaceholder(): message})
@@ -236,6 +268,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         until=configManager.getCommandArgDescription("timeout", configManager.getDatetimeKey()),
         reason=configManager.getCommandArgDescription("timeout", configManager.getReasonKey()))
     async def timeout(self, interaction: discord.Interaction, member: str, until: str, reason: str = ""):
+        if await handleRestricted(interaction, "timeout"):
+            return
+
         member = getMember(interaction, get_member_id_from_mention(member))
         if member is None:
             await handleInvalidMember(interaction, "timeout")
@@ -256,6 +291,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
     @app_commands.command(description=configManager.getCommandArgDescription("removetimeout", "description"))
     @app_commands.describe(member=configManager.getCommandArgDescription("removetimeout", configManager.getMentionMemberKey()))
     async def removetimeout(self, interaction: discord.Interaction, member: str):
+        if await handleRestricted(interaction, "removetimeout"):
+            return
+
         member = getMember(interaction, get_member_id_from_mention(member))
         if member is None:
             await handleInvalidMember(interaction, "removetimeout")
@@ -276,6 +314,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
     async def slowmode(self, interaction: discord.Interaction, seconds: str):
         # ctx.channel.edit(slowmode_delay=seconds)
 
+        if await handleRestricted(interaction, "slowmode"):
+            return
+
         if not seconds.isdigit():
             await handleInvalidArg(interaction, "slowmode")
             return
@@ -294,6 +335,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
     @app_commands.command(description=configManager.getCommandArgDescription("vmute", "description"))
     @app_commands.describe(member=configManager.getCommandArgDescription("vmute", configManager.getMentionMemberKey()))
     async def vmute(self, interaction: discord.Interaction, member: str):
+        if await handleRestricted(interaction, "vmute"):
+            return
+
         member = getMember(interaction, get_member_id_from_mention(member))
         if member is None:
             await handleInvalidMember(interaction, "vmute")
@@ -312,6 +356,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
     @app_commands.command(description=configManager.getCommandArgDescription("vunmute", "description"))
     @app_commands.describe(member=configManager.getCommandArgDescription("vunmute", configManager.getMentionMemberKey()))
     async def vunmute(self, interaction: discord.Interaction, member: str):
+        if await handleRestricted(interaction, "vunmute"):
+            return
+
         member = getMember(interaction, get_member_id_from_mention(member))
         if member is None:
             await handleInvalidMember(interaction, "vunmute")
@@ -329,6 +376,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
     @app_commands.command(description=configManager.getCommandArgDescription("vkick", "description"))
     @app_commands.describe(member=configManager.getCommandArgDescription("vkick", configManager.getMentionMemberKey()))
     async def vkick(self, interaction: discord.Interaction, member: str):
+        if await handleRestricted(interaction, "vkick"):
+            return
+
         member = getMember(interaction, get_member_id_from_mention(member))
         if member is None:
             await handleInvalidMember(interaction, "vkick")

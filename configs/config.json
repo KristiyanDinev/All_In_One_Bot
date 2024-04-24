@@ -6,6 +6,10 @@
     "/error/", "/reason/", "/blacklist_words/", "/invite/", "/channel_name/", "/bot_latency/",
   "/number/" ,"/message/", "/datetime/"],
 
+  "command_restriction": {
+    "avatar": {"all":  true}
+  },
+
 
 
 
