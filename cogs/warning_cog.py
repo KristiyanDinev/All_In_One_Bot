@@ -23,22 +23,18 @@ class WarningsCommands(commands.Cog, name="WarningsCommands"):
             await handleInvalidMember(interaction, "warn")
             return
 
-        role = getRole(interaction, configManager.getWarningRoleID())
-        if role is None:
-            await handleInvalidRole(interaction, "warn")
-            return
+        roles = getWarningRolesFromLevel(interaction, getUserWarningLevel(member) + 1)
 
         try:
-            await member.add_roles(role)
+            for r in roles:
+                await member.add_roles(r, reason=reason)
 
-            addWarningToConfig(str(member.id), reason)
-
-            await handleMessage(interaction, "warn",
-                                placeholders={configManager.getRoleNamePlaceholder(): role.name,
-                                              configManager.getUsernamePlaceholder(): member.name,
-                                              configManager.getReasonPlaceholder(): reason})
+                await handleMessage(interaction, "warn",
+                                    placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                                  configManager.getReasonPlaceholder(): reason})
 
         except Exception as e:
+            print(e)
             await handleErrors(interaction, "warn", e)
 
     @app_commands.command(description=configManager.getCommandArgDescription("warnings", "description"))
@@ -53,14 +49,9 @@ class WarningsCommands(commands.Cog, name="WarningsCommands"):
             await handleInvalidMember(interaction, "warnings")
             return
 
-        role = getRole(interaction, configManager.getWarningRoleID())
-        if role is None:
-            await handleInvalidRole(interaction, "warnings")
-            return
-
-        role_id = role.id
+        roles = getRoleIdFromRoles(getWarningRolesFromLevel(interaction, getUserWarningLevel(member)))
         for role in member.roles:
-            if role.id == role_id:
+            if role.id in roles:
                 try:
                     await handleMessage(interaction, "warnings",
                                         placeholders={configManager.getRoleNamePlaceholder(): role.name,
@@ -85,21 +76,26 @@ class WarningsCommands(commands.Cog, name="WarningsCommands"):
             await handleInvalidMember(interaction, "warnings")
             return
 
-        role = getRole(interaction, configManager.getWarningRoleID())
-        if role is None:
-            await handleInvalidRole(interaction, "warnings")
-            return
+        allRoles = []
+        for level in range(1, configManager.getWarningLevels()+1):
+            roleData = configManager.getWarningDataForLevel(level)
+            if len(roleData) == 0:
+                continue
+
+            roles_id = roleData.get("roles_id", None)
+            if roles_id is not None:
+                for r_id in roles_id:
+                    r = interaction.guild.get_role(r_id)
+                    if r is not None:
+                        allRoles.append(r)
 
         try:
+            for role in allRoles:
+                await member.remove_roles(role, reason=reason)
 
-            await member.remove_roles(role, reason=reason)
-
-            removeWarningFromConfig(str(member.id))
-
-            await handleMessage(interaction, "clearwarnings",
-                                placeholders={configManager.getRoleNamePlaceholder(): role.name,
-                            configManager.getUsernamePlaceholder(): member.name,
-                            configManager.getReasonPlaceholder(): reason})
+                await handleMessage(interaction, "clearwarnings",
+                                    placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                configManager.getReasonPlaceholder(): reason})
 
         except Exception as e:
             await handleErrors(interaction, "clearwarnings", e)

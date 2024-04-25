@@ -51,8 +51,6 @@ class ConfigManager:
     def getBlacklistedWords(self):
         return self.data.get("blacklist_words")
 
-    def getWarningRoleID(self):
-        return self.data.get("warning_role_id")
 
     def getCommandData(self, command_name):
         return self._readJSON(self.command_folder+"/"+command_name)
@@ -77,6 +75,12 @@ class ConfigManager:
             return self.getCommandData(command).get("embed_format", {}).get(message, None)
         else:
             return res
+
+    def getWarningLevels(self) -> int:
+        return self.data.get("warnings", {}).get("levels", 0)
+
+    def getWarningDataForLevel(self, level: int) -> dict:
+        return self.data.get("warnings", {}).get("level-"+str(level), {})
 
     def getCommandMessages(self, command_name, message):
         res = self.messages.get("messages", {}).get(message, "")

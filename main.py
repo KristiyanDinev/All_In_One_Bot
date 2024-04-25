@@ -229,5 +229,8 @@ value -> dict data
  |-> "all": Should the command be allowed for everyone or be restricted | true -> everyone . false -> restricted
  
 
-
 """
+
+
+
+

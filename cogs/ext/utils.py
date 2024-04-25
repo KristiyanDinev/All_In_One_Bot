@@ -1,7 +1,11 @@
+from __future__ import annotations
+
+from typing import List
+
 import discord
 import os, sys, json
 from discord.ext import commands
-from discord import app_commands, Member
+from discord import app_commands, Member, Role
 from cogs.ext.config_manager import ConfigManager
 
 configManager = ConfigManager("configs/config", "configs/messages",
@@ -15,6 +19,9 @@ async def setup(bot: commands.Bot):
 async def sendResponse(interaction: discord.Interaction, message: str, embed: discord.Embed):
     if len(message.replace(" ", "")) == 0:
         message = None
+
+    if message is None and embed is None:
+        return
 
     eph = configManager.getEphPlaceholder()
 
@@ -75,16 +82,19 @@ def buildMessages(command_name: str, error_name: str = "", placeholders: dict = 
                 if configManager.isActivePlaceholder(placeholder):
                     message = message.replace(placeholder, v)
         return message, embed
+    return "", None
 
 
 async def handleMessage(interaction: discord.Interaction, command_name: str, error_name: str = "",
                         placeholders: dict = dict()):
-    await sendResponse(interaction, *buildMessages(command_name, error_name, placeholders))
+    msg, emb = buildMessages(command_name, error_name, placeholders)
+    await sendResponse(interaction, msg, emb)
 
 
 async def handleMessageCtx(ctx: discord.ext.commands.context.Context, command_name: str, error_name: str = "",
                            placeholders: dict = dict()):
-    await sendResponseCtx(ctx, *buildMessages(command_name, error_name, placeholders))
+    msg, emb = buildMessages(command_name, error_name, placeholders)
+    await sendResponseCtx(ctx, msg, emb)
 
 
 def buildEmbed(command: str, message_key: str, placeholders: dict):
@@ -211,15 +221,50 @@ def addWordsToBlacklist(words: list):
     configManager.saveConfigJSON()
 
 
-def addWarningToConfig(user_id: str, reason: str):
-    configManager.warning_data[user_id] = reason
-    configManager.saveWarningsJSON()
+
+def getRoleIdFromRoles(roles: List[Role]) -> list:
+    userRolesId = []
+    for r in roles:
+        userRolesId.append(r.id)
+    return userRolesId
+
+def getUserWarningLevel(user: discord.Member) -> int:
+    lastIndex = 0
+    for i in range(1, configManager.getWarningLevels()+1):
+        warning_data: dict = configManager.getWarningDataForLevel(i)
+        if len(warning_data) == 0:
+            continue
+
+        roles_id: list | None = warning_data.get("roles_id", None)
+        userRolesId = getRoleIdFromRoles(user.roles)
+        if roles_id is not None:
+            hasAllRoles = False
+            for role_id in roles_id:
+                if role_id in userRolesId:
+                    hasAllRoles = True
+                else:
+                    hasAllRoles = False
+                    break
+            if hasAllRoles and lastIndex < i:
+                lastIndex = i
+    return lastIndex
 
 
-def removeWarningFromConfig(user_id: str):
-    configManager.warning_data.pop(user_id)
-    configManager.saveWarningsJSON()
+def getWarningRolesFromLevel(interaction: discord.Interaction, level: int) -> List[Role]:
+    warning_data: dict = configManager.getWarningDataForLevel(level)
 
+    warningRoles = []
+    if len(warning_data) == 0:
+        return warningRoles
+
+    roles_id: list | None = warning_data.get("roles_id", None)
+
+    if roles_id is not None:
+        for r_id in roles_id:
+            r = interaction.guild.get_role(r_id)
+            if r is not None:
+                warningRoles.append(r)
+    return warningRoles
 
 def isUserRestricted(interaction: discord.Interaction, commandName: str) -> str:
     res = configManager.getCommandRestrictions(commandName)
