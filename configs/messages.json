@@ -17,8 +17,13 @@
   },
 
   "messages": {
-    "mymessage": "Override Message",
-    "restricted": "You are restricted for `/reason/`"
+    "mymessage": ["Override Message"],
+    "restricted": ["You are restricted for `/reason/`"]
+  },
+
+  "dm": {
+    "avatar": ["This is dm"],
+    "dm_message": ["dm from /username/ say /message/"]
   },
 
   "args": {

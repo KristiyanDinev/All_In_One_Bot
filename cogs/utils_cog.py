@@ -58,3 +58,27 @@ class UtilsCog(commands.Cog, name="Utils"):
         await handleMessage(interaction, "ping",
                             placeholders={configManager.getBotLatencyPlaceholder(): str(round(self.bot.latency, 1))})
 
+
+    @app_commands.command(description=configManager.getCommandArgDescription("dm", "description"))
+    @app_commands.describe(member=configManager.getCommandArgDescription("dm", configManager.getMentionMemberKey()),
+                           message=configManager.getCommandArgDescription("dm", configManager.getEnterMessageKey()))
+    async def dm(self, interaction: discord.Interaction, message: str, member: str = ""):
+        if await handleRestricted(interaction, "dm"):
+            return
+
+        if len(message.replace(" ", "")) == 0:
+            await handleInvalidArg(interaction, "dm")
+            return
+
+        if member == "":
+            member: discord.Member = interaction.user
+        else:
+            member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
+
+        if member is None:
+            await handleInvalidMember(interaction, "dm")
+            return
+
+
+        await handleMessage(interaction, "dm", placeholders={configManager.getUsernamePlaceholder(): interaction.user.name,
+                        configManager.getMessagePlaceholder(): message}, dm_user=member)

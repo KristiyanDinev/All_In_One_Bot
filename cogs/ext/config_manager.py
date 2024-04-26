@@ -82,14 +82,19 @@ class ConfigManager:
     def getWarningDataForLevel(self, level: int) -> dict:
         return self.data.get("warnings", {}).get("level-"+str(level), {})
 
-    def getCommandMessages(self, command_name, message):
-        res = self.messages.get("messages", {}).get(message, "")
-        if len(res.replace(" ", "")) == 0:
-            return self.getCommandData(command_name).get("messages", {}).get(message, "")
+
+    def getCommandMessages(self, command_name, message) -> list:
+        res = self.messages.get("messages", {}).get(message, [])
+        if len(res) == 0:
+            return self.getCommandData(command_name).get("messages", {}).get(message, [])
         else:
             return res
 
-    def getCommandActiveMessages(self, command_name):
+    def getDMMessages(self, message) -> list:
+        return self.messages.get("dm", {}).get(message, [])
+
+
+    def getCommandActiveMessages(self, command_name) -> list:
         return self.getCommandData(command_name).get("message_names", [])
 
 

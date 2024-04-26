@@ -5,18 +5,15 @@
     "levels": 3,
     "level-1": {
       "roles_id": [ 916359207010312242, 999335117279469739 ],
-      "send_messages": [],
-      "send_dms": []
+      "send_messages": []
     },
     "level-2": {
       "roles_id": [ 916952329591345185 ],
-      "send_messages": [],
-      "send_dms": []
+      "send_messages": []
     },
     "level-3": {
       "roles_id": [ 916952761483030569 ],
-      "send_messages": [],
-      "send_dms": []
+      "send_messages": []
     }
   },
   "activated_placeholders": ["/eph/", "/username/", "/avatar_url/", "/role_name/",

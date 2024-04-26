@@ -1,10 +1,10 @@
 {
   "embed_format": {
-    "mymessage2": {
+    "mymessage": {
       "title": "/username/",
       "color": "random",
       "description": "",
-      "footer": "",
+      "footer": "not overwritten",
       "footer_icon_url": "",
       "image_url": "/avatar_url/",
       "author_name": "",
@@ -21,7 +21,7 @@
     "description": "command description"
   },
 
-  "message_names": ["mymessage2"],
+  "message_names": ["mymessage"],
 
   "messages": {}
 }

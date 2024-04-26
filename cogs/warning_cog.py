@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from cogs.ext.utils import *
 
 
@@ -23,7 +25,9 @@ class WarningsCommands(commands.Cog, name="WarningsCommands"):
             await handleInvalidMember(interaction, "warn")
             return
 
-        roles = getWarningRolesFromLevel(interaction, getUserWarningLevel(member) + 1)
+        nextLevel = getUserWarningLevel(member) + 1
+        roles = getWarningRolesFromLevel(interaction, nextLevel)
+        warningData = configManager.getWarningDataForLevel(nextLevel)
 
         try:
             for r in roles:
@@ -32,6 +36,13 @@ class WarningsCommands(commands.Cog, name="WarningsCommands"):
                 await handleMessage(interaction, "warn",
                                     placeholders={configManager.getUsernamePlaceholder(): member.name,
                                                   configManager.getReasonPlaceholder(): reason})
+
+            sendMessages: list | None = warningData.get("send_messages", None)
+            if sendMessages is not None:
+                for msg in sendMessages:
+                    await handleMessage(interaction, msg,
+                                        placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                                      configManager.getReasonPlaceholder(): reason})
 
         except Exception as e:
             print(e)

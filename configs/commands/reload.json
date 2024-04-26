@@ -2,6 +2,6 @@
   "message_names": ["reload_done"],
 
   "messages": {
-    "reload_done": "Reloaded"
+    "reload_done": ["Reloaded"]
   }
 }
