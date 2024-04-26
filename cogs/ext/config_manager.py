@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from cogs.ext.utils import *
 
 async def setup(bot: commands.Bot):
@@ -77,10 +79,43 @@ class ConfigManager:
             return res
 
     def getWarningLevels(self) -> int:
-        return self.data.get("warnings", {}).get("levels", 0)
+        return self.data.get("warnings", {}).get("warns", 0)
 
     def getWarningDataForLevel(self, level: int) -> dict:
-        return self.data.get("warnings", {}).get("level-"+str(level), {})
+        return self.data.get("warnings", {}).get("warn-"+str(level), {})
+
+
+    def getLevelGlobalMax(self) -> int:
+        return int(self.data.get("leveling", {}).get("max_levels", 10))
+    def getLevelGlobalMin(self) -> int:
+        return int(self.data.get("leveling", {}).get("min_levels", 0))
+
+    def getLevelExceptionalRoleMin(self, role_id) -> int | None:
+        res: str | None = self.data.get("leveling", {}).get("level_limit_exceptions", {}).get("roles", {}).get(str(role_id), {}).get("min_levels", None)
+        if res is None:
+            return None
+        return int(res)
+
+    def getLevelExceptionalRoleMax(self, role_id) -> int | None:
+        res: str | None = self.data.get("leveling", {}).get("level_limit_exceptions", {}).get("roles", {}).get(str(role_id), {}).get("max_levels", None)
+        if res is None:
+            return None
+        return int(res)
+
+
+    def getLevelExceptionalUserMin(self, user_id) -> int | None:
+        res: str | None = self.data.get("leveling", {}).get("level_limit_exceptions", {}).get("users", {}).get(str(user_id), {}).get("min_levels", None)
+        if res is None:
+            return None
+        return int(res)
+
+
+    def getLevelExceptionalUserMax(self, user_id) -> int | None:
+        res: str | None = self.data.get("leveling", {}).get("level_limit_exceptions", {}).get("users", {}).get(str(user_id), {}).get("max_levels", None)
+        if res is None:
+            return None
+        return int(res)
+
 
 
     def getCommandMessages(self, command_name, message) -> list:

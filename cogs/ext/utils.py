@@ -399,3 +399,33 @@ async def handleRestrictedCtx(ctx: discord.ext.commands.context.Context, command
 
         return True
     return False
+
+
+
+def getUserLevel(interaction: discord.Interaction, max: bool):
+    if max:
+        res: int | None = configManager.getLevelExceptionalUserMax(interaction.user.id)
+    else:
+        res: int | None = configManager.getLevelExceptionalUserMin(interaction.user.id)
+    if res is not None:
+        return int(res)
+
+    userRoleIds = getRoleIdFromRoles(interaction.user.roles)
+    if len(userRoleIds) == 0:
+        if max:
+            return configManager.getLevelGlobalMax()
+        else:
+            return configManager.getLevelGlobalMin()
+
+    biggest_limit = userRoleIds[0]
+    for role_id in userRoleIds:
+        if max:
+            role_max: int | None = configManager.getLevelExceptionalRoleMax(role_id)
+            if role_max is not None and role_max > biggest_limit:
+                biggest_limit = role_max
+        else:
+            role_max: int | None = configManager.getLevelExceptionalRoleMin(role_id)
+            if role_max is not None and role_max < biggest_limit:
+                biggest_limit = role_max
+    return biggest_limit
+
