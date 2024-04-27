@@ -159,11 +159,15 @@ class ConfigManager:
     def allLevels(self) -> int:
         return int(self.data.get("leveling", {}).get("levels", 999999999))
 
-    #TODO find better formula to calculate the needed XP for that level
+
+    def getLevelupXPMultiplier(self) -> int:
+        return int(self.data.get("leveling", {}).get("required_xp_for_levelup_multiplier", 4))
+
+
 
     def getLevelXP(self, level) -> int:
         return int(self.data.get("leveling", {}).get("leveling", {}).get("level-"+str(level),
-                                                                         int(level) * self.getXPPerMessages()))
+                                                                         int(level) * self.getLevelupXPMultiplier()))
 
 
 

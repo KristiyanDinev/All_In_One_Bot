@@ -36,7 +36,7 @@ async def sendResponse(interaction: discord.Interaction, message: list, embed: d
                 continue
             await interaction.response.send_message(msg, embed=embed,
                                                     ephemeral=configManager.isActivePlaceholder(eph) and
-                                                       (msg is not None and eph is not None and eph in msg))
+                                                              (msg is not None and eph is not None and eph in msg))
         for msg in dm:
             if msg is None and embed is None:
                 continue
@@ -49,7 +49,8 @@ async def sendResponse(interaction: discord.Interaction, message: list, embed: d
                 if msg is None and embed is None:
                     continue
                 await interaction.channel.send(msg, embed=embed, ephemeral=configManager.isActivePlaceholder(eph) and
-                                                       (msg is not None and eph is not None and eph in msg))
+                                                                           (
+                                                                                       msg is not None and eph is not None and eph in msg))
             for msg in dm:
                 if msg is None and embed is None:
                     continue
@@ -61,7 +62,7 @@ async def sendResponse(interaction: discord.Interaction, message: list, embed: d
 
 
 async def sendResponseCtx(ctx: discord.ext.commands.context.Context, message: list, embed: discord.Embed, dm: list,
-                       user: discord.User):
+                          user: discord.User):
     if message is None and embed is None and dm is None and user is None:
         return
 
@@ -76,7 +77,7 @@ async def sendResponseCtx(ctx: discord.ext.commands.context.Context, message: li
     try:
         for msg in message:
             await ctx.reply(msg, embed=embed, ephemeral=configManager.isActivePlaceholder(eph) and
-                                                                (msg is not None and eph is not None and eph in msg))
+                                                        (msg is not None and eph is not None and eph in msg))
 
         for msg in dm:
             await user.send(msg, embed=embed)
@@ -86,14 +87,13 @@ async def sendResponseCtx(ctx: discord.ext.commands.context.Context, message: li
         try:
             for msg in message:
                 await ctx.send(msg, embed=embed, ephemeral=configManager.isActivePlaceholder(eph) and
-                                                                (msg is not None and eph is not None and eph in msg))
+                                                           (msg is not None and eph is not None and eph in msg))
             for msg in dm:
                 await user.send(msg, embed=embed)
 
         except Exception as e:
             print(e)
             pass
-
 
 
 def usePlaceholders(msg: str, placeholders: dict) -> str:
@@ -267,9 +267,11 @@ def addWordsToBlacklist(words: list):
     configManager.updateBlacklistWords(configManager.getBlacklistedWords())
     configManager.saveConfigJSON()
 
+
 def removeWordsFromBlacklist(words: list):
     configManager.updateBlacklistWords([i for i in configManager.getBlacklistedWords() if i not in words])
     configManager.saveConfigJSON()
+
 
 def getRoleIdFromRoles(roles: List[Role]) -> list:
     userRolesId = []
@@ -406,7 +408,6 @@ async def handleRestrictedCtx(ctx: discord.ext.commands.context.Context, command
     return False
 
 
-
 def getUserLevel(user: discord.Member, isMax: bool) -> int:
     if isMax:
         res: int | None = configManager.getLevelExceptionalUserMax(user.id)
@@ -423,14 +424,15 @@ def getUserLevel(user: discord.Member, isMax: bool) -> int:
     for role_id in userRoleIds:
         if isMax:
             role_max: int | None = configManager.getLevelExceptionalRoleMax(role_id)
-            if role_max is not None and role_max > biggest_limit:
+            if (role_max is not None) and ((biggest_limit is None) or (role_max > biggest_limit)):
                 biggest_limit = role_max
         else:
             role_max: int | None = configManager.getLevelExceptionalRoleMin(role_id)
-            if role_max is not None and role_max < biggest_limit:
+            if (role_max is not None) and ((biggest_limit is None) or (role_max < biggest_limit)):
                 biggest_limit = role_max
 
-    return biggest_limit if biggest_limit is not None else (configManager.getLevelGlobalMax() if isMax else configManager.getLevelGlobalMin())
+    return biggest_limit if biggest_limit is not None else (
+        configManager.getLevelGlobalMax() if isMax else configManager.getLevelGlobalMin())
 
 
 def handleUserLevelingOnMessage(user: discord.Member):
@@ -454,5 +456,3 @@ def handleUserLevelingOnMessage(user: discord.Member):
     print("level:", currentLevel, "xp:", totalXP)
 
     configManager.saveLevelJSON()
-
-

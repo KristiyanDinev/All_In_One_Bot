@@ -31,19 +31,17 @@
         "min_levels": 0,
         "level_limit_exceptions": {
             "roles": {
-                "13412414141": {
-                    "max_levels": 15,
-                    "min_levels": 5
+                "990697510198730802": {
+                    "max_levels": 25,
+                    "min_levels": 15
                 }
             },
             "users": {
-                "72454524922242": {
-                    "max_levels": 20,
-                    "min_levels": 5
-                }
+
             }
         },
-        "give_xp_per_messages": 2,
+        "give_xp_per_messages": 10,
+        "required_xp_for_levelup_multiplier": 2,
         "levels": 10,
         "leveling": {
             "level-1": 5
