@@ -6,14 +6,19 @@ async def setup(bot: commands.Bot):
     pass
 
 class ConfigManager:
-    def __init__(self, file_path, messages_path, warnings_path, commands_folder):
+    def __init__(self, file_path, messages_path, warnings_path, commands_folder, levels_path):
         self.config_path = file_path
         self.message_path = messages_path
         self.warning_path = warnings_path
         self.command_folder = commands_folder
+        self.levels_path = levels_path
+        self.levels = self._readJSON(levels_path)
         self.warning_data = self._readJSON(warnings_path)
         self.data = self._readJSON(file_path)
         self.messages = self._readJSON(messages_path)
+
+    def saveLevelJSON(self) -> None:
+        self._saveJSON(self.levels_path, self.levels)
 
     def saveCommandJSON(self, command: str, command_data: dict) -> None:
         self._saveJSON(self.command_folder+"/"+command+".json", command_data)
@@ -45,14 +50,19 @@ class ConfigManager:
         self.messages = self._readJSON(self.message_path)
 
     def getBotToken(self):
-        return self.data.get("discord_bot_token")
+        return self.data.get("discord_bot_token", "")
 
     def getBotPrefix(self):
-        return self.data.get("prefix")
+        return self.data.get("prefix", "!!!")
 
-    def getBlacklistedWords(self):
-        return self.data.get("blacklist_words")
+    def getBlacklistedWords(self) -> list:
+        return self.data.get("blacklist_words", [])
 
+    def updateBlacklistWords(self, words: list):
+        try:
+            self.data["blacklist_words"] = words
+        except Exception:
+            pass
 
     def getCommandData(self, command_name):
         return self._readJSON(self.command_folder+"/"+command_name)
@@ -87,8 +97,35 @@ class ConfigManager:
 
     def getLevelGlobalMax(self) -> int:
         return int(self.data.get("leveling", {}).get("max_levels", 10))
+
     def getLevelGlobalMin(self) -> int:
         return int(self.data.get("leveling", {}).get("min_levels", 0))
+
+    def getUserLevel(self, user_id) -> int:
+        return self.levels.get(str(user_id), {}).get("level", 0)
+
+    def getUserXP(self, user_id) -> int:
+        return self.levels.get(str(user_id), {}).get("xp", 0)
+
+    def setUserLevel(self, user_id, level) -> None:
+        try:
+            user_id_str = str(user_id)
+            if user_id_str in self.levels.keys():
+                self.levels[user_id_str]["level"] = int(level)
+            else:
+                self.levels[user_id_str] = {"xp": self.getLevelXP(level), "level": int(level)}
+        except Exception:
+            pass
+
+    def setUserXP(self, user_id, xp) -> None:
+        try:
+            user_id_str = str(user_id)
+            if user_id_str in self.levels.keys():
+                self.levels[user_id_str]["xp"] = int(xp)
+            else:
+                self.levels[user_id_str] = {"xp": int(xp), "level": self.getUserLevel(user_id)}
+        except Exception as e:
+            pass
 
     def getLevelExceptionalRoleMin(self, role_id) -> int | None:
         res: str | None = self.data.get("leveling", {}).get("level_limit_exceptions", {}).get("roles", {}).get(str(role_id), {}).get("min_levels", None)
@@ -115,6 +152,18 @@ class ConfigManager:
         if res is None:
             return None
         return int(res)
+
+    def getXPPerMessages(self) -> int:
+        return int(self.data.get("leveling", {}).get("give_xp_per_messages", 1))
+
+    def allLevels(self) -> int:
+        return int(self.data.get("leveling", {}).get("levels", 999999999))
+
+    #TODO find better formula to calculate the needed XP for that level
+
+    def getLevelXP(self, level) -> int:
+        return int(self.data.get("leveling", {}).get("leveling", {}).get("level-"+str(level),
+                                                                         int(level) * self.getXPPerMessages()))
 
 
 

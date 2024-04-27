@@ -48,6 +48,7 @@ class WarningsCommands(commands.Cog, name="WarningsCommands"):
             print(e)
             await handleErrors(interaction, "warn", e)
 
+
     @app_commands.command(description=configManager.getCommandArgDescription("warnings", "description"))
     @app_commands.describe(
         member=configManager.getCommandArgDescription("warnings", configManager.getMentionMemberKey()))

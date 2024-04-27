@@ -138,6 +138,38 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         except Exception as e:
             await handleErrors(interaction, "blacklist", e)
 
+    @app_commands.command(description=configManager.getCommandArgDescription("removeblacklist", "description"))
+    @app_commands.describe(
+        words=configManager.getCommandArgDescription("removeblacklist", configManager.getBlacklistWordsKey()))
+    async def removeblacklist(self, interaction: discord.Interaction, words: str):
+        if await handleRestricted(interaction, "removeblacklist"):
+            return
+
+        try:
+            words_list: list = words.split(",")
+            for i in range(len(words_list)):
+                if len(words_list[i].replace(" ", "")) == 0:
+                    words_list.pop(i)
+
+            removeWordsFromBlacklist(words_list)
+            await handleMessage(interaction, "removeblacklist",
+                                placeholders={configManager.getBlacklistWordsPlaceholder(): words_list})
+
+        except Exception as e:
+            await handleErrors(interaction, "removeblacklist", e)
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.message.Message):
+        for word in configManager.getBlacklistedWords():
+            if word in message.content:
+                await message.delete()
+                return
+        handleUserLevelingOnMessage(message.author)
+
+    @commands.Cog.listener()
+    async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        return
+
     @app_commands.command(description=configManager.getCommandArgDescription("deafen", "description"))
     @app_commands.describe(member=configManager.getCommandArgDescription("deafen", configManager.getMentionMemberKey()),
                            reason=configManager.getCommandArgDescription("deafen", configManager.getReasonKey()))

@@ -1,113 +1,73 @@
 {
-  "prefix": "!!!!",
-  "blacklist_words": ["hello", "there"],
-  "warnings": {
-    "warns": 3,
-    "warn-1": {
-      "roles_id": [ 916359207010312242, 999335117279469739 ],
-      "send_messages": []
-    },
-    "warn-2": {
-      "roles_id": [ 916952329591345185 ],
-      "send_messages": []
-    },
-    "warn-3": {
-      "roles_id": [ 916952761483030569 ],
-      "send_messages": []
-    }
-  },
-  "leveling": {
-    "max_levels": 4,
-    "min_levels": 0,
-    "level_limit_exceptions": {
-      "roles": {
-        "13412414141": {
-          "max_levels": 15,
-          "min_levels": 5
+    "prefix": "!!!!",
+    "blacklist_words": [
+        "xd",
+        "sss"
+    ],
+    "warnings": {
+        "warns": 3,
+        "warn-1": {
+            "roles_id": [
+                916359207010312242,
+                999335117279469739
+            ],
+            "send_messages": []
+        },
+        "warn-2": {
+            "roles_id": [
+                916952329591345185
+            ],
+            "send_messages": []
+        },
+        "warn-3": {
+            "roles_id": [
+                916952761483030569
+            ],
+            "send_messages": []
         }
-      },
-      "users": {
-        "72454524922242": {
-          "max_levels": 20,
-          "min_levels": 5
-        }
-      },
     },
-    "levels": 10,
     "leveling": {
-      "level-1": 5
-    }
-  },
-  "activated_placeholders": ["/eph/", "/username/", "/avatar_url/", "/role_name/",
-    "/error/", "/reason/", "/blacklist_words/", "/invite/", "/channel_name/", "/bot_latency/",
-  "/number/" ,"/message/", "/datetime/"],
-
-  "command_restriction": {
-    "avatar": {"all":  true}
-  },
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  "discord_bot_token": ""
+        "max_levels": 4,
+        "min_levels": 0,
+        "level_limit_exceptions": {
+            "roles": {
+                "13412414141": {
+                    "max_levels": 15,
+                    "min_levels": 5
+                }
+            },
+            "users": {
+                "72454524922242": {
+                    "max_levels": 20,
+                    "min_levels": 5
+                }
+            }
+        },
+        "give_xp_per_messages": 2,
+        "levels": 10,
+        "leveling": {
+            "level-1": 5
+        }
+    },
+    "activated_placeholders": [
+        "/eph/",
+        "/username/",
+        "/avatar_url/",
+        "/role_name/",
+        "/error/",
+        "/reason/",
+        "/blacklist_words/",
+        "/invite/",
+        "/channel_name/",
+        "/bot_latency/",
+        "/number/",
+        "/message/",
+        "/datetime/"
+    ],
+    "command_restriction": {
+        "avatar": {
+            "all": true
+        }
+    },
+    "discord_bot_token": ""
 }

@@ -9,7 +9,8 @@ from discord import app_commands, Member, Role
 from cogs.ext.config_manager import ConfigManager
 
 configManager = ConfigManager("configs/config", "configs/messages",
-                              "configs/warnings", "configs/commands")
+                              "configs/warnings",
+                              "configs/commands", "configs/levels")
 
 
 async def setup(bot: commands.Bot):
@@ -263,8 +264,12 @@ def getVoiceChannel(interaction: discord.Interaction, channel_id: int) -> None |
 
 def addWordsToBlacklist(words: list):
     configManager.getBlacklistedWords().extend(words)
+    configManager.updateBlacklistWords(configManager.getBlacklistedWords())
     configManager.saveConfigJSON()
 
+def removeWordsFromBlacklist(words: list):
+    configManager.updateBlacklistWords([i for i in configManager.getBlacklistedWords() if i not in words])
+    configManager.saveConfigJSON()
 
 def getRoleIdFromRoles(roles: List[Role]) -> list:
     userRolesId = []
@@ -402,24 +407,21 @@ async def handleRestrictedCtx(ctx: discord.ext.commands.context.Context, command
 
 
 
-def getUserLevel(interaction: discord.Interaction, max: bool):
-    if max:
-        res: int | None = configManager.getLevelExceptionalUserMax(interaction.user.id)
+def getUserLevel(user: discord.Member, isMax: bool) -> int:
+    if isMax:
+        res: int | None = configManager.getLevelExceptionalUserMax(user.id)
     else:
-        res: int | None = configManager.getLevelExceptionalUserMin(interaction.user.id)
+        res: int | None = configManager.getLevelExceptionalUserMin(user.id)
     if res is not None:
         return int(res)
 
-    userRoleIds = getRoleIdFromRoles(interaction.user.roles)
+    userRoleIds: list = getRoleIdFromRoles(user.roles)
     if len(userRoleIds) == 0:
-        if max:
-            return configManager.getLevelGlobalMax()
-        else:
-            return configManager.getLevelGlobalMin()
+        return configManager.getLevelGlobalMax() if isMax else configManager.getLevelGlobalMin()
 
-    biggest_limit = userRoleIds[0]
+    biggest_limit: int | None = None
     for role_id in userRoleIds:
-        if max:
+        if isMax:
             role_max: int | None = configManager.getLevelExceptionalRoleMax(role_id)
             if role_max is not None and role_max > biggest_limit:
                 biggest_limit = role_max
@@ -427,5 +429,30 @@ def getUserLevel(interaction: discord.Interaction, max: bool):
             role_max: int | None = configManager.getLevelExceptionalRoleMin(role_id)
             if role_max is not None and role_max < biggest_limit:
                 biggest_limit = role_max
-    return biggest_limit
+
+    return biggest_limit if biggest_limit is not None else (configManager.getLevelGlobalMax() if isMax else configManager.getLevelGlobalMin())
+
+
+def handleUserLevelingOnMessage(user: discord.Member):
+    maxLevel = getUserLevel(user, True)
+    minLevel = getUserLevel(user, False)
+    currentLevel = configManager.getUserLevel(user.id)
+    nextLevel = currentLevel + 1
+    totalXP = configManager.getUserXP(user.id) + configManager.getXPPerMessages()
+
+    if minLevel > currentLevel or currentLevel > maxLevel or maxLevel == minLevel:
+        configManager.setUserLevel(user.id, minLevel)
+        configManager.setUserXP(user.id, configManager.getLevelXP(minLevel))
+        print("level:", minLevel, "xp:", configManager.getLevelXP(minLevel))
+        configManager.saveLevelJSON()
+        return
+
+    configManager.setUserXP(user.id, totalXP)
+    if totalXP >= configManager.getLevelXP(nextLevel) and minLevel <= nextLevel <= maxLevel:
+        configManager.setUserLevel(user.id, nextLevel)
+
+    print("level:", currentLevel, "xp:", totalXP)
+
+    configManager.saveLevelJSON()
+
 
