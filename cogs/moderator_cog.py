@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 
 import discord.errors
@@ -13,6 +15,52 @@ class ModeratorCog(commands.Cog, name="Moderator"):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    @app_commands.command(description=configManager.getCommandArgDescription("avatar", "description"))
+    @app_commands.describe(member=configManager.getCommandArgDescription("avatar", configManager.getMentionMemberKey()))
+    async def avatar(self, interaction: discord.Interaction, member: str = ""):
+        if await handleRestricted(interaction, "avatar"):
+            return
+
+        if member == "":
+            member: discord.Member = interaction.user
+        else:
+            member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
+
+        if member is None:
+            await handleInvalidMember(interaction, "avatar")
+            return
+
+        await handleMessage(interaction, "avatar",
+                            placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                          configManager.getAvatarUrlPlaceholder(): member.avatar.url})
+
+    @app_commands.command(description=configManager.getCommandArgDescription("invite", "description"))
+    @app_commands.describe(bot_id=configManager.getCommandArgDescription("invite", configManager.getMemberIDKey()),
+                           permissions=configManager.getCommandArgDescription("invite", configManager.getNumberKey()))
+    async def invite(self, interaction: discord.Interaction, bot_id: str, permissions: str):
+        if await handleRestricted(interaction, "invite"):
+            return
+
+        if not bot_id.isdigit() or not permissions.isdigit():
+            await handleMessage(interaction, "invite", error_name=configManager.getInvalidArgsKey(),
+                                placeholders={
+                                    configManager.getErrorPlaceholder():
+                                        configManager.getCommandMessages("invite", configManager.getNumberKey())})
+            return
+        # https://discord.com/oauth2/authorize?client_id=1223731465309917204&scope=applications.commands%20bot&permissions=8
+        await handleMessage(interaction, "invite", placeholders={
+            configManager.getInvitePlaceholder(): "https://discord.com/oauth2/authorize?client_id=" +
+                                                  bot_id + "&scope=applications.commands%20bot&permissions=" +
+                                                  permissions})
+
+    @app_commands.command(description=configManager.getCommandArgDescription("ping", "description"))
+    async def ping(self, interaction: discord.Interaction):
+        if await handleRestricted(interaction, "ping"):
+            return
+
+        await handleMessage(interaction, "ping",
+                            placeholders={configManager.getBotLatencyPlaceholder(): str(round(self.bot.latency, 1))})
 
     @app_commands.command(description=configManager.getCommandArgDescription("addrole", "description"))
     @app_commands.describe(
@@ -160,11 +208,13 @@ class ModeratorCog(commands.Cog, name="Moderator"):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.message.Message):
-        for word in configManager.getBlacklistedWords():
-            if word in message.content:
-                await message.delete()
-                return
-        handleUserLevelingOnMessage(message.author)
+        if message.author.id != self.bot.user.id:
+            for word in configManager.getBlacklistedWords():
+                if word in message.content:
+                    await message.delete()
+                    return
+
+            handleUserLevelingOnMessage(message.author)
 
     @commands.Cog.listener()
     async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
@@ -238,10 +288,11 @@ class ModeratorCog(commands.Cog, name="Moderator"):
             await handleErrors(interaction, "kick", e)
 
     @app_commands.command(description=configManager.getCommandArgDescription("move", "description"))
-    @app_commands.describe(member_mention=configManager.getCommandArgDescription("move", configManager.getMentionMemberKey()),
-                           channel_mention=configManager.getCommandArgDescription("move",
-                                                                          configManager.getMentionVoiceChannelKey()),
-                           reason=configManager.getCommandArgDescription("move", configManager.getReasonKey()))
+    @app_commands.describe(
+        member_mention=configManager.getCommandArgDescription("move", configManager.getMentionMemberKey()),
+        channel_mention=configManager.getCommandArgDescription("move",
+                                                               configManager.getMentionVoiceChannelKey()),
+        reason=configManager.getCommandArgDescription("move", configManager.getReasonKey()))
     async def move(self, interaction: discord.Interaction, member_mention: str, channel_mention: str, reason: str = ""):
         if await handleRestricted(interaction, "move"):
             return
@@ -319,9 +370,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         except Exception as e:
             await handleErrors(interaction, "timeout", e)
 
-
     @app_commands.command(description=configManager.getCommandArgDescription("removetimeout", "description"))
-    @app_commands.describe(member=configManager.getCommandArgDescription("removetimeout", configManager.getMentionMemberKey()))
+    @app_commands.describe(
+        member=configManager.getCommandArgDescription("removetimeout", configManager.getMentionMemberKey()))
     async def removetimeout(self, interaction: discord.Interaction, member: str):
         if await handleRestricted(interaction, "removetimeout"):
             return
@@ -335,11 +386,10 @@ class ModeratorCog(commands.Cog, name="Moderator"):
             await member.edit(timed_out_until=None)
 
             await handleMessage(interaction, "removetimeout",
-                               placeholders={configManager.getUsernamePlaceholder(): member.name})
+                                placeholders={configManager.getUsernamePlaceholder(): member.name})
 
         except Exception as e:
             await handleErrors(interaction, "removetimeout", e)
-
 
     @app_commands.command(description=configManager.getCommandArgDescription("slowmode", "description"))
     @app_commands.describe(seconds=configManager.getCommandArgDescription("slowmode", configManager.getNumberKey()))
@@ -358,11 +408,10 @@ class ModeratorCog(commands.Cog, name="Moderator"):
 
             await handleMessage(interaction, "slowmode",
                                 placeholders={configManager.getChannelNamePlaceholder(): interaction.channel.name,
-                            configManager.getNumberPlaceholder(): seconds})
+                                              configManager.getNumberPlaceholder(): seconds})
 
         except Exception as e:
             await handleErrors(interaction, "slowmode", e)
-
 
     @app_commands.command(description=configManager.getCommandArgDescription("vmute", "description"))
     @app_commands.describe(member=configManager.getCommandArgDescription("vmute", configManager.getMentionMemberKey()))
@@ -384,9 +433,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         except Exception as e:
             await handleErrors(interaction, "vmute", e)
 
-
     @app_commands.command(description=configManager.getCommandArgDescription("vunmute", "description"))
-    @app_commands.describe(member=configManager.getCommandArgDescription("vunmute", configManager.getMentionMemberKey()))
+    @app_commands.describe(
+        member=configManager.getCommandArgDescription("vunmute", configManager.getMentionMemberKey()))
     async def vunmute(self, interaction: discord.Interaction, member: str):
         if await handleRestricted(interaction, "vunmute"):
             return
@@ -404,7 +453,6 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         except Exception as e:
             await handleErrors(interaction, "vunmute", e)
 
-
     @app_commands.command(description=configManager.getCommandArgDescription("vkick", "description"))
     @app_commands.describe(member=configManager.getCommandArgDescription("vkick", configManager.getMentionMemberKey()))
     async def vkick(self, interaction: discord.Interaction, member: str):
@@ -420,7 +468,31 @@ class ModeratorCog(commands.Cog, name="Moderator"):
             await member.move_to(None)
 
             await handleMessage(interaction, "vkick",
-                               placeholders={configManager.getUsernamePlaceholder(): member.name})
+                                placeholders={configManager.getUsernamePlaceholder(): member.name})
 
         except Exception as e:
             await handleErrors(interaction, "vkick", e)
+
+    @app_commands.command(description=configManager.getCommandArgDescription("dm", "description"))
+    @app_commands.describe(member=configManager.getCommandArgDescription("dm", configManager.getMentionMemberKey()),
+                           message=configManager.getCommandArgDescription("dm", configManager.getEnterMessageKey()))
+    async def dm(self, interaction: discord.Interaction, message: str, member: str = ""):
+        if await handleRestricted(interaction, "dm"):
+            return
+
+        if len(message.replace(" ", "")) == 0:
+            await handleInvalidArg(interaction, "dm")
+            return
+
+        if member == "":
+            member: discord.Member = interaction.user
+        else:
+            member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
+
+        if member is None:
+            await handleInvalidMember(interaction, "dm")
+            return
+
+        await handleMessage(interaction, "dm",
+                            placeholders={configManager.getUsernamePlaceholder(): interaction.user.name,
+                                          configManager.getMessagePlaceholder(): message}, dm_user=member)

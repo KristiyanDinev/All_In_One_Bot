@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import discord.errors
 from cogs.ext.utils import *
 
@@ -12,72 +14,76 @@ class UtilsCog(commands.Cog, name="Utils"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @app_commands.command(description=configManager.getCommandArgDescription("avatar", "description"))
-    @app_commands.describe(member=configManager.getCommandArgDescription("avatar", configManager.getMentionMemberKey()))
-    async def avatar(self, interaction: discord.Interaction, member: str = ""):
-        if await handleRestricted(interaction, "avatar"):
+    @app_commands.command(description=configManager.getCommandArgDescription("disablecog", "description"))
+    @app_commands.describe(cog=configManager.getCommandArgDescription("disablecog", configManager.getEnterMessageKey()))
+    async def disablecog(self, interaction: discord.Interaction, cog: str):
+        if await handleRestricted(interaction, "disablecog"):
             return
 
-        if member == "":
-            member: discord.Member = interaction.user
-        else:
-            member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
-
-        if member is None:
-            await handleInvalidMember(interaction, "avatar")
+        if len(cog.replace(" ", "")) == 0:
+            await handleInvalidArg(interaction, "disablecog")
             return
 
-        placeholders = {configManager.getUsernamePlaceholder(): member.name,
-                        configManager.getAvatarUrlPlaceholder(): member.avatar.url}
-        await handleMessage(interaction, "avatar", placeholders=placeholders)
-
-    @app_commands.command(description=configManager.getCommandArgDescription("invite", "description"))
-    @app_commands.describe(bot_id=configManager.getCommandArgDescription("invite", configManager.getMemberIDKey()),
-                           permissions=configManager.getCommandArgDescription("invite", configManager.getNumberKey()))
-    async def invite(self, interaction: discord.Interaction, bot_id: str, permissions: str):
-        if await handleRestricted(interaction, "invite"):
+        given_cog_file_name: str | None = CogsData.get(cog)
+        if given_cog_file_name is None:
+            await handleInvalidArg(interaction, "disablecog")
             return
 
-        if not bot_id.isdigit() or not permissions.isdigit():
-            await handleMessage(interaction, "invite", error_name=configManager.getInvalidArgsKey(),
-                                placeholders={
-                                    configManager.getErrorPlaceholder():
-                                        configManager.getCommandMessages("invite", configManager.getNumberKey())})
-            return
-        # https://discord.com/oauth2/authorize?client_id=1223731465309917204&scope=applications.commands%20bot&permissions=8
-        await handleMessage(interaction, "invite", placeholders={
-            configManager.getInvitePlaceholder(): "https://discord.com/oauth2/authorize?client_id=" +
-                                                  bot_id + "&scope=applications.commands%20bot&permissions=" +
-                                                  permissions})
+        try:
+            await self.bot.unload_extension(f"cogs.{given_cog_file_name}")
+            await handleMessage(interaction, "disablecog",
+                                placeholders={configManager.getUsernamePlaceholder(): cog})
+        except Exception as e:
+            await handleErrors(interaction, "disablecog", e)
 
-    @app_commands.command(description=configManager.getCommandArgDescription("ping", "description"))
-    async def ping(self, interaction: discord.Interaction):
-        if await handleRestricted(interaction, "ping"):
+
+    @app_commands.command(description=configManager.getCommandArgDescription("enablecog", "description"))
+    @app_commands.describe(cog=configManager.getCommandArgDescription("enablecog", configManager.getEnterMessageKey()))
+    async def enablecog(self, interaction: discord.Interaction, cog: str):
+        if await handleRestricted(interaction, "enablecog"):
             return
 
-        await handleMessage(interaction, "ping",
-                            placeholders={configManager.getBotLatencyPlaceholder(): str(round(self.bot.latency, 1))})
-
-    @app_commands.command(description=configManager.getCommandArgDescription("dm", "description"))
-    @app_commands.describe(member=configManager.getCommandArgDescription("dm", configManager.getMentionMemberKey()),
-                           message=configManager.getCommandArgDescription("dm", configManager.getEnterMessageKey()))
-    async def dm(self, interaction: discord.Interaction, message: str, member: str = ""):
-        if await handleRestricted(interaction, "dm"):
+        if len(cog.replace(" ", "")) == 0:
+            await handleInvalidArg(interaction, "enablecog")
             return
 
-        if len(message.replace(" ", "")) == 0:
-            await handleInvalidArg(interaction, "dm")
+        given_cog_file_name: str | None = CogsData.get(cog)
+        if given_cog_file_name is None:
+            await handleInvalidArg(interaction, "enablecog")
             return
 
-        if member == "":
-            member: discord.Member = interaction.user
-        else:
-            member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
+        try:
+            await self.bot.load_extension(f"cogs.{given_cog_file_name}")
+            await handleMessage(interaction, "enablecog",
+                                placeholders={configManager.getUsernamePlaceholder(): cog})
+        except Exception as e:
+            await handleErrors(interaction, "enablecog", e)
 
-        if member is None:
-            await handleInvalidMember(interaction, "dm")
+    @app_commands.command(description=configManager.getCommandArgDescription("listcog", "description"))
+    async def listcog(self, interaction: discord.Interaction):
+        if await handleRestricted(interaction, "listcog"):
             return
 
-        await handleMessage(interaction, "dm",
-                            placeholders={configManager.getUsernamePlaceholder(): interaction.user.name,
-                                          configManager.getMessagePlaceholder(): message}, dm_user=member)
+        for name, file_name in CogsData.items():
+            try:
+                await self.bot.load_extension(f"cogs.{file_name}")
+
+            except commands.ExtensionAlreadyLoaded:
+                #await ctx.send("Cog is loaded")
+                await handleMessage(interaction, "listcog",
+                                    placeholders={configManager.getUsernamePlaceholder(): name,
+                                                  configManager.getMessagePlaceholder(): configManager.getCogActiveStatus()})
+
+            except commands.ExtensionNotFound:
+                #await ctx.send("Cog not found")
+                await handleMessage(interaction, "listcog",
+                                    placeholders={configManager.getUsernamePlaceholder(): name,
+                                                  configManager.getMessagePlaceholder(): configManager.getCogNotFoundStatus()})
+            else:
+                #await ctx.send("Cog is unloaded")
+                await self.bot.unload_extension(f"cogs.{file_name}")
+                await handleMessage(interaction, "listcog",
+                                    placeholders={configManager.getUsernamePlaceholder(): name,
+                                                  configManager.getMessagePlaceholder(): configManager.getCogDeactiveStatus()})
+
+

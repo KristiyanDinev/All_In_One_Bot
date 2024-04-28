@@ -18,8 +18,18 @@
 
   "messages": {
     "mymessage": ["Override Message"],
-    "restricted": ["You are restricted for `/reason/`"]
+    "restricted": ["You are restricted for `/reason/`"],
+    "listcog_msg": ["Cog name: /username/ Stats: /message/"],
+    "enable_cog": ["Enabled cog: /username/"],
+    "disable_cog": ["Disabled cog: /username/"],
+    "level_msg": ["Your level /level/ your xp /xp/"],
+    "edit_level_msg": ["Your new level is /level/"],
+    "edit_xp_msg": ["Your new xp is /xp/"]
   },
+
+  "cog_acticated_status": "loaded",
+  "cog_deactivated_status": "unloaded",
+  "cog_not_found_status": "not found",
 
   "dm": {
     "avatar": ["This is dm"],

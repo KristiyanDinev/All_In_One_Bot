@@ -12,6 +12,13 @@ configManager = ConfigManager("configs/config", "configs/messages",
                               "configs/warnings",
                               "configs/commands", "configs/levels")
 
+CogsData = {
+    "Leveling": "leveling_cog",
+    "Moderator": "moderator_cog",
+    "Warnings": "warning_cog",
+    "Utils": "utils_cog"
+}
+
 
 async def setup(bot: commands.Bot):
     pass
@@ -43,14 +50,11 @@ async def sendResponse(interaction: discord.Interaction, message: list, embed: d
             await user.send(msg, embed=embed)
 
     except Exception as e:
-        print(e)
         try:
             for msg in message:
                 if msg is None and embed is None:
                     continue
-                await interaction.channel.send(msg, embed=embed, ephemeral=configManager.isActivePlaceholder(eph) and
-                                                                           (
-                                                                                       msg is not None and eph is not None and eph in msg))
+                await interaction.channel.send(msg, embed=embed)
             for msg in dm:
                 if msg is None and embed is None:
                     continue
@@ -58,7 +62,6 @@ async def sendResponse(interaction: discord.Interaction, message: list, embed: d
 
         except Exception as e:
             print(e)
-            pass
 
 
 async def sendResponseCtx(ctx: discord.ext.commands.context.Context, message: list, embed: discord.Embed, dm: list,
@@ -99,15 +102,28 @@ async def sendResponseCtx(ctx: discord.ext.commands.context.Context, message: li
 def usePlaceholders(msg: str, placeholders: dict) -> str:
     for placeholder, v in placeholders.items():
         if configManager.isActivePlaceholder(placeholder):
-            msg = msg.replace(placeholder, v)
+            msg = msg.replace(str(placeholder), str(v))
     return msg
 
 
-def buildMessages(command_name: str, error_name: str = "", placeholders: dict = dict()):
+def buildMessages(command_name: str, error_name: str = "", placeholders: dict = dict(),
+                  interaction: discord.Interaction = None, ctx: discord.ext.commands.context.Context = None):
+    if (configManager.getXPPlaceholder() not in placeholders.keys() or
+            configManager.getLevelPlaceholder() not in placeholders.keys()):
+        if interaction is not None:
+            placeholders[configManager.getXPPlaceholder()] = str(configManager.getUserXP(interaction.user.id))
+            placeholders[configManager.getLevelPlaceholder()] = str(configManager.getUserLevel(interaction.user.id))
+
+        elif ctx is not None:
+            placeholders[configManager.getXPPlaceholder()] = str(configManager.getUserXP(ctx.author.id))
+            placeholders[configManager.getLevelPlaceholder()] = str(configManager.getUserLevel(ctx.author.id))
+
     if len(error_name.replace(" ", "")) > 0:
         error_embed = buildEmbed(command_name, error_name, placeholders)
-        message: list = configManager.getCommandMessages(command_name, error_name)
-        dm: list = configManager.getDMMessages(command_name)
+        if error_embed is not None:
+            error_embed = error_embed.copy()
+        message: list = configManager.getCommandMessages(command_name, error_name).copy()
+        dm: list = configManager.getDMMessages(command_name).copy()
         if len(message) != 0:
             for i in range(len(message)):
                 message[i] = usePlaceholders(message[i], placeholders)
@@ -118,8 +134,8 @@ def buildMessages(command_name: str, error_name: str = "", placeholders: dict = 
         return message, error_embed, dm
 
     for msg in configManager.getCommandData(command_name).get("message_names", []):
-        message: list = configManager.getCommandMessages(command_name, msg)
-        dm: list = configManager.getDMMessages(msg)
+        message: list = configManager.getCommandMessages(command_name, msg).copy()
+        dm: list = configManager.getDMMessages(msg).copy()
         embed = buildEmbed(command_name, msg, placeholders)
 
         if len(message) != 0:
@@ -129,19 +145,23 @@ def buildMessages(command_name: str, error_name: str = "", placeholders: dict = 
         if len(dm) != 0:
             for i in range(len(dm)):
                 dm[i] = usePlaceholders(dm[i], placeholders)
+
+        if embed is not None:
+            embed = embed.copy()
+
         return message, embed, dm
     return [None], None, [None]
 
 
 async def handleMessage(interaction: discord.Interaction, command_name: str, error_name: str = "",
                         placeholders: dict = dict(), dm_user: discord.User = None):
-    msg, emb, dm = buildMessages(command_name, error_name, placeholders)
+    msg, emb, dm = buildMessages(command_name, error_name, placeholders, interaction=interaction)
     await sendResponse(interaction, msg, emb, dm, dm_user)
 
 
 async def handleMessageCtx(ctx: discord.ext.commands.context.Context, command_name: str, error_name: str = "",
                            placeholders: dict = dict(), dm_user: discord.User = None):
-    msg, emb, dm = buildMessages(command_name, error_name, placeholders)
+    msg, emb, dm = buildMessages(command_name, error_name, placeholders, ctx=ctx)
     await sendResponseCtx(ctx, msg, emb, dm, dm_user)
 
 
@@ -435,6 +455,32 @@ def getUserLevel(user: discord.Member, isMax: bool) -> int:
         configManager.getLevelGlobalMax() if isMax else configManager.getLevelGlobalMin())
 
 
+def getLevelByXP(xp: int):
+    level = 0
+    while True:
+        if xp == configManager.getLevelXP(level) or xp < configManager.getLevelXP(level + 1):
+            break
+        level += 1
+    return level
+
+
+def setUserXP(user: discord.Member, xp: int):
+    maxLevel = getUserLevel(user, True)
+    minLevel = getUserLevel(user, False)
+    currentLevel = configManager.getUserLevel(user.id)
+
+    if minLevel > currentLevel or currentLevel > maxLevel or maxLevel == minLevel:
+        configManager.setUserLevel(user.id, minLevel)
+        configManager.setUserXP(user.id, configManager.getLevelXP(minLevel))
+        configManager.saveLevelJSON()
+        return
+
+    configManager.setUserXP(user.id, xp)
+    configManager.setUserLevel(user.id, getLevelByXP(xp))
+
+    configManager.saveLevelJSON()
+
+
 def handleUserLevelingOnMessage(user: discord.Member):
     maxLevel = getUserLevel(user, True)
     minLevel = getUserLevel(user, False)
@@ -445,14 +491,11 @@ def handleUserLevelingOnMessage(user: discord.Member):
     if minLevel > currentLevel or currentLevel > maxLevel or maxLevel == minLevel:
         configManager.setUserLevel(user.id, minLevel)
         configManager.setUserXP(user.id, configManager.getLevelXP(minLevel))
-        print("level:", minLevel, "xp:", configManager.getLevelXP(minLevel))
         configManager.saveLevelJSON()
         return
 
     configManager.setUserXP(user.id, totalXP)
     if totalXP >= configManager.getLevelXP(nextLevel) and minLevel <= nextLevel <= maxLevel:
         configManager.setUserLevel(user.id, nextLevel)
-
-    print("level:", currentLevel, "xp:", totalXP)
 
     configManager.saveLevelJSON()

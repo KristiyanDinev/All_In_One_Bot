@@ -8,7 +8,7 @@ async def setup(bot: commands.Bot):
     await bot.add_cog(WarningsCommands(bot))
 
 
-class WarningsCommands(commands.Cog, name="WarningsCommands"):
+class WarningsCommands(commands.Cog, name="Warnings"):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot

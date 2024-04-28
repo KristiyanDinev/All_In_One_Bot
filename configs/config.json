@@ -27,21 +27,17 @@
         }
     },
     "leveling": {
-        "max_levels": 4,
+        "max_levels": 99999999,
         "min_levels": 0,
         "level_limit_exceptions": {
             "roles": {
-                "990697510198730802": {
-                    "max_levels": 25,
-                    "min_levels": 15
-                }
             },
             "users": {
 
             }
         },
         "give_xp_per_messages": 10,
-        "required_xp_for_levelup_multiplier": 2,
+        "required_xp_for_levelup_multiplier": 3.5,
         "levels": 10,
         "leveling": {
             "level-1": 5
@@ -60,7 +56,9 @@
         "/bot_latency/",
         "/number/",
         "/message/",
-        "/datetime/"
+        "/datetime/",
+        "/level/",
+        "/xp/"
     ],
     "command_restriction": {
         "avatar": {
