@@ -17,7 +17,7 @@ class LevelingCog(commands.Cog, name="Leveling"):
     @app_commands.command(description=configManager.getCommandArgDescription("level", "description"))
     @app_commands.describe(member=configManager.getCommandArgDescription("level", configManager.getMentionMemberKey()))
     async def level(self, interaction: discord.Interaction, member: str = ""):
-        if await handleRestricted(interaction, "level"):
+        if await handleRestricted(self.bot, interaction, "level"):
             return
 
         if member == "":
@@ -26,17 +26,17 @@ class LevelingCog(commands.Cog, name="Leveling"):
             member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
 
         if member is None:
-            await handleInvalidMember(interaction, "level")
+            await handleInvalidMember(self.bot, interaction, "level")
             return
 
-        await handleMessage(interaction, "level",
+        await handleMessage(self.bot, interaction, "level",
                             placeholders={configManager.getLevelPlaceholder(): configManager.getUserLevel(member.id),
                                           configManager.getXPPlaceholder(): configManager.getUserXP(member.id)})
 
     @app_commands.command(description=configManager.getCommandArgDescription("xp", "description"))
     @app_commands.describe(member=configManager.getCommandArgDescription("xp", configManager.getMentionMemberKey()))
     async def xp(self, interaction: discord.Interaction, member: str = ""):
-        if await handleRestricted(interaction, "xp"):
+        if await handleRestricted(self.bot, interaction, "xp"):
             return
 
         if member == "":
@@ -45,10 +45,10 @@ class LevelingCog(commands.Cog, name="Leveling"):
             member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
 
         if member is None:
-            await handleInvalidMember(interaction, "xp")
+            await handleInvalidMember(self.bot, interaction, "xp")
             return
 
-        await handleMessage(interaction, "xp",
+        await handleMessage(self.bot, interaction, "xp",
                             placeholders={configManager.getLevelPlaceholder(): configManager.getUserLevel(member.id),
                                           configManager.getXPPlaceholder(): configManager.getUserXP(member.id)})
 
@@ -57,11 +57,11 @@ class LevelingCog(commands.Cog, name="Leveling"):
     @app_commands.describe(member=configManager.getCommandArgDescription("editxp", configManager.getMentionMemberKey()),
                            xp=configManager.getCommandArgDescription("editxp", configManager.getNumberKey()))
     async def editxp(self, interaction: discord.Interaction, xp: str, member: str = ""):
-        if await handleRestricted(interaction, "editxp"):
+        if await handleRestricted(self.bot, interaction, "editxp"):
             return
 
         if not xp.isdigit():
-            await handleInvalidArg(interaction, "editxp")
+            await handleInvalidArg(self.bot, interaction, "editxp")
             return
 
         if member == "":
@@ -70,11 +70,11 @@ class LevelingCog(commands.Cog, name="Leveling"):
             member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
 
         if member is None:
-            await handleInvalidMember(interaction, "editxp")
+            await handleInvalidMember(self.bot, interaction, "editxp")
             return
 
         setUserXP(member, int(xp))
-        await handleMessage(interaction, "editxp",
+        await handleMessage(self.bot, interaction, "editxp",
                             placeholders={configManager.getUsernamePlaceholder(): member.name,
                                           configManager.getLevelPlaceholder(): configManager.getUserLevel(member.id),
                                           configManager.getXPPlaceholder(): configManager.getUserXP(member.id)})
@@ -88,7 +88,7 @@ class LevelingCog(commands.Cog, name="Leveling"):
             return
 
         if not level.isdigit():
-            await handleInvalidArg(interaction, "editlevel")
+            await handleInvalidArg(self.bot, interaction, "editlevel")
             return
 
         if member == "":
@@ -97,15 +97,14 @@ class LevelingCog(commands.Cog, name="Leveling"):
             member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
 
         if member is None:
-            await handleInvalidMember(interaction, "editlevel")
+            await handleInvalidMember(self.bot, interaction, "editlevel")
             return
 
-        xp: int = configManager.getLevelXP(int(level))
         setUserXP(member, configManager.getLevelXP(int(level)))
-        await handleMessage(interaction, "editlevel",
+        await handleMessage(self.bot, interaction, "editlevel",
                             placeholders={configManager.getUsernamePlaceholder(): member.name,
                                           configManager.getLevelPlaceholder(): level,
-                                          configManager.getXPPlaceholder(): xp})
+                                          configManager.getXPPlaceholder(): configManager.getLevelXP(int(level))})
 
 
 

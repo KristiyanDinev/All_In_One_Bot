@@ -14,25 +14,25 @@ class ConfigManager:
         self.warning_path = warnings_path
         self.command_folder = commands_folder
         self.levels_path = levels_path
-        self.levels = self._readJSON(levels_path)
-        self.warning_data = self._readJSON(warnings_path)
-        self.data = self._readJSON(file_path)
-        self.messages = self._readJSON(messages_path)
+        self.levelsData = self._readJSON(levels_path)
+        self.warningsData = self._readJSON(warnings_path)
+        self.configData = self._readJSON(file_path)
+        self.messagesData = self._readJSON(messages_path)
 
     def saveLevelJSON(self) -> None:
-        self._saveJSON(self.levels_path, self.levels)
+        self._saveJSON(self.levels_path, self.levelsData)
 
     def saveCommandJSON(self, command: str, command_data: dict) -> None:
         self._saveJSON(self.command_folder + "/" + command + ".json", command_data)
 
     def saveConfigJSON(self) -> None:
-        self._saveJSON(self.config_path, self.data)
+        self._saveJSON(self.config_path, self.configData)
 
     def saveWarningsJSON(self) -> None:
-        self._saveJSON(self.warning_path, self.warning_data)
+        self._saveJSON(self.warning_path, self.warningsData)
 
     def saveMessagesJSON(self) -> None:
-        self._saveJSON(self.message_path, self.messages)
+        self._saveJSON(self.message_path, self.messagesData)
 
     def _saveJSON(self, output_file_name, data) -> None:
         open(output_file_name + ".json", "a")
@@ -47,148 +47,160 @@ class ConfigManager:
             return json.load(jsonfile)
 
     def reloadConfig(self):
-        self.warning_data = self._readJSON(self.warning_path)
-        self.data = self._readJSON(self.config_path)
-        self.messages = self._readJSON(self.message_path)
+        self.warningsData = self._readJSON(self.warning_path)
+        self.configData = self._readJSON(self.config_path)
+        self.messagesData = self._readJSON(self.message_path)
 
     def getBotToken(self) -> str:
-        return str(self.data.get("discord_bot_token", ""))
+        return str(self.configData.get("discord_bot_token", ""))
 
     def getBotPrefix(self) -> str:
-        return str(self.data.get("prefix", "!!!"))
+        return str(self.configData.get("prefix", "!!!"))
 
     def getCogActiveStatus(self) -> str:
-        return str(self.messages.get("cog_acticated_status", "loaded"))
+        return str(self.messagesData.get("cog_acticated_status", "loaded"))
 
     def getCogDeactiveStatus(self) -> str:
-        return str(self.messages.get("cog_deactivated_status", "unloaded"))
+        return str(self.messagesData.get("cog_deactivated_status", "unloaded"))
 
     def getCogNotFoundStatus(self) -> str:
-        return str(self.messages.get("cog_not_found_status", "not found"))
+        return str(self.messagesData.get("cog_not_found_status", "not found"))
 
     def getBlacklistedWords(self) -> list:
-        return self.data.get("blacklist_words", [])
+        return self.configData.get("blacklist_words", [])
 
     def updateBlacklistWords(self, words: list):
         try:
-            self.data["blacklist_words"] = words
+            self.configData["blacklist_words"] = words
         except Exception:
             pass
 
     def getCommandData(self, command_name):
         return self._readJSON(self.command_folder + "/" + command_name)
 
-    def getCommandArgDescription(self, command_name, argument):
-        res = self.messages.get("args", {}).get(argument, None)
+    def getCommandArgDescription(self, command_name, argument) -> str:
+        res = self.messagesData.get("args", {}).get(argument, None)
         if res is not None:
-            return res
+            return str(res)
 
         res = self.getCommandData(command_name).get("args", {}).get(argument, None)
         if res is None:
             return argument + " argument for command " + command_name + " is not define"
         else:
-            return res
+            return str(res)
 
-    def getCommandRestrictions(self, command_name):
-        return self.data.get("command_restriction", {}).get(command_name, {})
+    def getCommandRestrictions(self, command_name) -> dict:
+        return dict(self.configData.get("command_restriction", {}).get(command_name, {}))
 
-    def getCommandEmbeds(self, command: str, message: str):
-        res = self.messages.get("embed_format", {}).get(message, None)
+    def getCommandEmbeds(self, command: str, message: str) -> dict | None:
+        res = self.messagesData.get("embed_format", {}).get(message, None)
         if res is None:
             return self.getCommandData(command).get("embed_format", {}).get(message, None)
         else:
             return res
 
+    def getMessagesByChannel(self, name: str) -> list:
+        return list(self.messagesData.get("channel_messages", {}).get(name, {}).get("messages", []))
+
+    def getEmbedsByChannel(self, name: str) -> list:
+        return list(self.messagesData.get("channel_messages", {}).get(name, {}).get("embeds", []))
+
+    def getChannelIdByName(self, name: str) -> int:
+        return int(self.configData.get("channels", {}).get(name, 0))
+
     def getWarningLevels(self) -> int:
-        return self.data.get("warnings", {}).get("warns", 0)
+        return self.configData.get("warnings", {}).get("warns", 0)
 
     def getWarningDataForLevel(self, level: int) -> dict:
-        return self.data.get("warnings", {}).get("warn-" + str(level), {})
+        return self.configData.get("warnings", {}).get("warn-" + str(level), {})
 
     def getLevelGlobalMax(self) -> int:
-        return int(self.data.get("leveling", {}).get("max_levels", 10))
+        return int(self.configData.get("leveling", {}).get("max_levels", 10))
 
     def getLevelGlobalMin(self) -> int:
-        return int(self.data.get("leveling", {}).get("min_levels", 0))
+        return int(self.configData.get("leveling", {}).get("min_levels", 0))
 
     def getUserLevel(self, user_id) -> int:
-        return self.levels.get(str(user_id), {}).get("level", 0)
+        return self.levelsData.get(str(user_id), {}).get("level", 0)
 
     def getUserXP(self, user_id) -> int:
-        return self.levels.get(str(user_id), {}).get("xp", 0)
+        return self.levelsData.get(str(user_id), {}).get("xp", 0)
 
     def setUserLevel(self, user_id, level) -> None:
         try:
             user_id_str = str(user_id)
-            if user_id_str in self.levels.keys():
-                self.levels[user_id_str]["level"] = int(level)
+            if user_id_str in self.levelsData.keys():
+                self.levelsData[user_id_str]["level"] = int(level)
             else:
-                self.levels[user_id_str] = {"xp": self.getLevelXP(level), "level": int(level)}
+                self.levelsData[user_id_str] = {"xp": self.getLevelXP(level), "level": int(level)}
         except Exception:
             pass
 
     def setUserXP(self, user_id, xp) -> None:
         try:
             user_id_str = str(user_id)
-            if user_id_str in self.levels.keys():
-                self.levels[user_id_str]["xp"] = float(str(round(xp, 2)))
+            if user_id_str in self.levelsData.keys():
+                self.levelsData[user_id_str]["xp"] = float(str(round(xp, 2)))
             else:
-                self.levels[user_id_str] = {"xp": float(str(round(xp, 2))), "level": self.getUserLevel(user_id)}
+                self.levelsData[user_id_str] = {"xp": float(str(round(xp, 2))), "level": self.getUserLevel(user_id)}
         except Exception:
             pass
 
     def getLevelExceptionalRoleMin(self, role_id) -> int | None:
-        res: str | None = self.data.get("leveling", {}).get("level_limit_exceptions", {}).get("roles", {}).get(
+        res: str | None = self.configData.get("leveling", {}).get("level_limit_exceptions", {}).get("roles", {}).get(
             str(role_id), {}).get("min_levels", None)
         if res is None:
             return None
         return int(res)
 
     def getLevelExceptionalRoleMax(self, role_id) -> int | None:
-        res: str | None = self.data.get("leveling", {}).get("level_limit_exceptions", {}).get("roles", {}).get(
+        res: str | None = self.configData.get("leveling", {}).get("level_limit_exceptions", {}).get("roles", {}).get(
             str(role_id), {}).get("max_levels", None)
         if res is None:
             return None
         return int(res)
 
     def getLevelExceptionalUserMin(self, user_id) -> int | None:
-        res: str | None = self.data.get("leveling", {}).get("level_limit_exceptions", {}).get("users", {}).get(
+        res: str | None = self.configData.get("leveling", {}).get("level_limit_exceptions", {}).get("users", {}).get(
             str(user_id), {}).get("min_levels", None)
         if res is None:
             return None
         return int(res)
 
     def getLevelExceptionalUserMax(self, user_id) -> int | None:
-        res: str | None = self.data.get("leveling", {}).get("level_limit_exceptions", {}).get("users", {}).get(
+        res: str | None = self.configData.get("leveling", {}).get("level_limit_exceptions", {}).get("users", {}).get(
             str(user_id), {}).get("max_levels", None)
         if res is None:
             return None
         return int(res)
 
     def getXPPerMessages(self) -> int:
-        return int(self.data.get("leveling", {}).get("give_xp_per_messages", 1))
+        return int(self.configData.get("leveling", {}).get("give_xp_per_messages", 1))
 
     def allLevels(self) -> int:
-        return int(self.data.get("leveling", {}).get("levels", 999999999))
+        return int(self.configData.get("leveling", {}).get("levels", 999999999))
 
     def getLevelupXPMultiplier(self) -> float:
-        return int(self.data.get("leveling", {}).get("required_xp_for_levelup_multiplier", 4))
+        return float(str(round(self.configData.get("leveling", {}).get("required_xp_for_levelup_multiplier", 4), 2)))
 
     def getLevelXP(self, level) -> float:
-        return float(str(round(self.data
+        return float(str(round(self.configData
                                .get("leveling", {})
                                .get("leveling", {})
                                .get("level-" + str(level), int(level) * self.getLevelupXPMultiplier()), 2)))
 
     def getCommandMessages(self, command_name, message) -> list:
-        res = self.messages.get("messages", {}).get(message, [])
+        res = self.messagesData.get("messages", {}).get(message, [])
         if len(res) == 0:
             return self.getCommandData(command_name).get("messages", {}).get(message, [])
         else:
             return res
 
     def getDMMessages(self, message) -> list:
-        return self.messages.get("dm", {}).get(message, [])
+        return self.messagesData.get("dm", {}).get(message, {}).get("messages", [])
+
+    def getDMEmbeds(self, message) -> list:
+        return self.messagesData.get("dm", {}).get(message, {}).get("embeds", [])
 
     def getCommandActiveMessages(self, command_name) -> list:
         return self.getCommandData(command_name).get("message_names", [])
@@ -284,7 +296,7 @@ class ConfigManager:
         return "author_icon_url"
 
     def isActivePlaceholder(self, placeholder: str):
-        return placeholder in self.data.get("activated_placeholders")
+        return placeholder in self.configData.get("activated_placeholders")
 
     def getUsernamePlaceholder(self):
         return "/username/"

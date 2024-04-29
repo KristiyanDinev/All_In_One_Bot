@@ -2,6 +2,11 @@
 {
 
   "embed_format": {
+    "invalid_args": {
+      "title": "You have given wrong data",
+      "color": "rgb(255,0,0)",
+      "description": "/error/"
+    },
     "mymessage": {
       "title": "/username/",
       "color": "random",
@@ -17,6 +22,7 @@
   },
 
   "messages": {
+    "invalid_args": ["You have provided wrong data /error/"],
     "mymessage": ["Override Message"],
     "restricted": ["You are restricted for `/reason/`"],
     "listcog_msg": ["Cog name: /username/ Stats: /message/"],
@@ -24,7 +30,15 @@
     "disable_cog": ["Disabled cog: /username/"],
     "level_msg": ["Your level /level/ your xp /xp/"],
     "edit_level_msg": ["Your new level is /level/"],
-    "edit_xp_msg": ["Your new xp is /xp/"]
+    "edit_xp_msg": ["Your new xp is /xp/"],
+    "simple_dm": ["dm from /username/ say /message/"]
+  },
+
+  "channel_messages": {
+    "mymessage": {
+      "messages": ["level_msg"],
+      "embeds": ["mymessage"]
+    }
   },
 
   "cog_acticated_status": "loaded",
@@ -32,8 +46,10 @@
   "cog_not_found_status": "not found",
 
   "dm": {
-    "avatar": ["This is dm"],
-    "dm_message": ["dm from /username/ say /message/"]
+    "mymessage": {
+      "messages": ["simple_dm"],
+      "embeds": ["mymessage"]
+    }
   },
 
   "args": {
