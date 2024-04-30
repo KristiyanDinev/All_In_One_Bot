@@ -66,6 +66,17 @@ class ConfigManager:
     def getCogNotFoundStatus(self) -> str:
         return str(self.messagesData.get("cog_not_found_status", "not found"))
 
+    def hasButton(self, name: str) -> bool:
+        res: dict | None = self.messagesData.get("buttons", {}).get(name, None)
+        return res is not None
+
+    def getButtonText(self, name: str) -> str:
+        return str(self.messagesData.get("buttons", {}).get(name, {}).get("label", "No label for "+name))
+
+    def getButtonStyle(self, name: str) -> str:
+        return str(self.messagesData.get("buttons", {}).get(name, {}).get("style", "green"))
+
+
     def getBlacklistedWords(self) -> list:
         return self.configData.get("blacklist_words", [])
 
@@ -104,6 +115,9 @@ class ConfigManager:
 
     def getEmbedsByChannel(self, name: str) -> list:
         return list(self.messagesData.get("channel_messages", {}).get(name, {}).get("embeds", []))
+
+    def getButtonsByChannel(self, name: str) -> list:
+        return list(self.messagesData.get("channel_messages", {}).get(name, {}).get("buttons", []))
 
     def getChannelIdByName(self, name: str) -> int:
         return int(self.configData.get("channels", {}).get(name, 0))
@@ -201,6 +215,9 @@ class ConfigManager:
 
     def getDMEmbeds(self, message) -> list:
         return self.messagesData.get("dm", {}).get(message, {}).get("embeds", [])
+
+    def getDMButtons(self, message) -> list:
+        return self.messagesData.get("dm", {}).get(message, {}).get("buttons", [])
 
     def getCommandActiveMessages(self, command_name) -> list:
         return self.getCommandData(command_name).get("message_names", [])

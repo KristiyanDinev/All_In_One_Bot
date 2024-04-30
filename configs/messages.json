@@ -1,6 +1,10 @@
-
 {
-
+  "buttons": {
+    "mymessage": {
+      "label": "Test",
+      "style": "green"
+    }
+  },
   "embed_format": {
     "invalid_args": {
       "title": "You have given wrong data",
@@ -31,13 +35,19 @@
     "level_msg": ["Your level /level/ your xp /xp/"],
     "edit_level_msg": ["Your new level is /level/"],
     "edit_xp_msg": ["Your new xp is /xp/"],
-    "simple_dm": ["dm from /username/ say /message/"]
+    "simple_dm": ["dm from /username/ say /message/"],
+    "sync_msg": ["Synced commands /number/"],
+    "bot_loads": ["I am online"]
   },
 
   "channel_messages": {
     "mymessage": {
       "messages": ["level_msg"],
-      "embeds": ["mymessage"]
+      "embeds": ["mymessage"],
+      "buttons": ["mymessage"]
+    },
+    "ready": {
+      "messages": ["bot_loads"]
     }
   },
 
@@ -48,7 +58,8 @@
   "dm": {
     "mymessage": {
       "messages": ["simple_dm"],
-      "embeds": ["mymessage"]
+      "embeds": ["mymessage"],
+      "buttons": ["mymessage"]
     }
   },
 

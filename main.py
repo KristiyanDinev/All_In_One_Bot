@@ -7,8 +7,6 @@ from cogs.ext.utils import *
         - ``rgb(<number>, <number>, <number>)``
 """
 
-
-
 """
 @app_commands.choices(color=[Choice(name="🔴 Red", value=0xff0000),
                 Choice(name="🔵 Blue", value=0x0000ff),
@@ -40,7 +38,6 @@ except ImportError:
 
 import discord
 from discord.ext import commands
-
 
 bot = commands.Bot(command_prefix=configManager.getBotPrefix(), intents=discord.Intents.all())
 
@@ -92,23 +89,28 @@ async def on_ready():
     for loc in FindAll("cogs"):
         await bot.load_extension(name=loc)
     print('Bot:', bot.user.name)
-
+    await handleMessageCtx(bot, None, "on_ready",
+                           placeholders={configManager.getUsernamePlaceholder(): bot.user.name,
+                                         configManager.getNumberPlaceholder(): bot.user.id})
 
 
 @bot.command()
 async def sync(ctx):
+    if await handleRestrictedCtx(bot, ctx, "sync"):
+        return
+
     synced = await bot.tree.sync()
-    print(f"Synced {len(synced)} command(s).")
-    await ctx.send(f"Synced {len(synced)} command(s).")
+    await handleMessageCtx(bot, ctx, "sync",
+                           placeholders={configManager.getNumberPlaceholder(): str(len(synced))})
+
 
 @bot.command()
 async def reload(ctx: discord.ext.commands.context.Context):
-    if await handleRestrictedCtx(ctx, "reload"):
+    if await handleRestrictedCtx(bot, ctx, "reload"):
         return
 
     configManager.reloadConfig()
-    await handleMessageCtx(ctx, "reload")
-
+    await handleMessageCtx(bot, ctx, "reload")
 
 
 if __name__ == "__main__":
@@ -118,33 +120,6 @@ if __name__ == "__main__":
         exit()
 
     bot.run(token)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 """
 /*
@@ -231,7 +206,3 @@ value -> dict data
  
 
 """
-
-
-
-
