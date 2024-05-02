@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import random
 from cogs.ext.utils import *
 
 
@@ -57,6 +57,10 @@ class ConfigManager:
     def getButtonStyle(self, combined: str) -> str:
         res = combined.split(" ")
         return str(self.messagesData.get("views", {}).get(res[0], {}).get(res[1], {}).get("style", "green"))
+
+    def getButtonCustomID(self, combined: str) -> str:
+        res = combined.split(" ")
+        return str(self.messagesData.get("views", {}).get(res[0], {}).get(res[1], {}).get("custom_id", str(random.randint(1, 1000))))
 
     def getCogData(self) -> dict:
         return dict(self.configData.get('cog_data', {}))

@@ -2,7 +2,8 @@
   "views": {
     "mymessage": {
       "mybutton": {
-        "style": "green",
+        "style": "grey",
+        "custom_id": "2q442525",
         "actions": {
           "idk": ["arg0"]
         }
@@ -14,24 +15,11 @@
       "title": "You have given wrong data",
       "color": "rgb(255,0,0)",
       "description": "/error/"
-    },
-    "mymessage": {
-      "title": "/username/",
-      "color": "random",
-      "description": "",
-      "footer": "",
-      "footer_icon_url": "",
-      "image_url": "/avatar_url/",
-      "author_name": "Override Embed",
-      "author_url": "",
-      "author_icon_url": "",
-      "fields": {"":  ""}
     }
   },
 
   "messages": {
     "invalid_args": ["You have provided wrong data /error/"],
-    "mymessage": ["Override Message"],
     "restricted": ["You are restricted for `/reason/`"],
     "listcog_msg": ["Cog name: /username/ Stats: /message/"],
     "enable_cog": ["Enabled cog: /username/"],
@@ -47,9 +35,9 @@
 
   "channel_messages": {
     "mymessage": {
-      "messages": ["level_msg"],
-      "embeds": ["mymessage"],
-      "views": ["mymessage"]
+      "messages": [],
+      "embeds": [],
+      "views": []
     },
     "ready": {
       "messages": ["bot_loads"]
@@ -62,9 +50,9 @@
 
   "dm": {
     "mymessage": {
-      "messages": ["simple_dm"],
-      "embeds": ["mymessage"],
-      "views": ["mymessage"]
+      "messages": [],
+      "embeds": [],
+      "views": []
     }
   },
 
