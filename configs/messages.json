@@ -1,8 +1,12 @@
 {
-  "buttons": {
+  "views": {
     "mymessage": {
-      "label": "Test",
-      "style": "green"
+      "mybutton": {
+        "style": "green",
+        "actions": {
+          "idk": ["arg0"]
+        }
+      }
     }
   },
   "embed_format": {
@@ -37,14 +41,15 @@
     "edit_xp_msg": ["Your new xp is /xp/"],
     "simple_dm": ["dm from /username/ say /message/"],
     "sync_msg": ["Synced commands /number/"],
-    "bot_loads": ["I am online"]
+    "bot_loads": ["I am online"],
+    "test_msg": ["Test"]
   },
 
   "channel_messages": {
     "mymessage": {
       "messages": ["level_msg"],
       "embeds": ["mymessage"],
-      "buttons": ["mymessage"]
+      "views": ["mymessage"]
     },
     "ready": {
       "messages": ["bot_loads"]
@@ -59,7 +64,7 @@
     "mymessage": {
       "messages": ["simple_dm"],
       "embeds": ["mymessage"],
-      "buttons": ["mymessage"]
+      "views": ["mymessage"]
     }
   },
 

@@ -12,13 +12,6 @@ configManager = ConfigManager("configs/config", "configs/messages",
                               "configs/warnings",
                               "configs/commands", "configs/levels")
 
-CogsData = {
-    "Leveling": "leveling_cog",
-    "Moderator": "moderator_cog",
-    "Warnings": "warning_cog",
-    "Utils": "utils_cog"
-}
-
 
 async def setup(bot: commands.Bot):
     pass
@@ -114,7 +107,7 @@ async def _sendResponse(interaction: discord.Interaction, mainData: dict, dm_use
     if len(mainData) == 0:
         return
     eph = configManager.getEphPlaceholder()
-    if dm_user is None:
+    if dm_user is None and interaction is not None:
         dm_user = interaction.user
 
     for message_name, data in mainData.items():
@@ -133,22 +126,18 @@ async def _sendResponse(interaction: discord.Interaction, mainData: dict, dm_use
                                      and configManager.isActivePlaceholder(eph)
                                      and eph in embed.title, interaction=interaction)
 
-        if button_view is not None:
-            await _handleMessageResponse(None, None, button_view, None, button_view.test() == "yes",
-                                         interaction=interaction)
-
         for msg in messages:
             await _handleMessageResponse(msg, None, None, None, configManager.isActivePlaceholder(eph)
                                          and eph in msg, interaction=interaction)
+        if dm_user is not None:
+            for dm_emb in dm_embeds:
+                await dm_user.send(embed=dm_emb)
 
-        for dm_emb in dm_embeds:
-            await dm_user.send(embed=dm_emb)
+            for dm in dm_messages:
+                await dm_user.send(dm)
 
-        for dm in dm_messages:
-            await dm_user.send(dm)
-
-        for dm_but in dm_buttons:
-            await dm_user.send(view=dm_but())
+            for dm_but in dm_buttons:
+                await dm_user.send(view=dm_but())
 
         if channel is not None:
             try:
@@ -167,6 +156,10 @@ async def _sendResponse(interaction: discord.Interaction, mainData: dict, dm_use
             except Exception:
                 pass
 
+        if button_view is not None:
+            await _handleMessageResponse(None, None, button_view, None, button_view.test() == "yes",
+                                         interaction=interaction)
+
 
 async def _sendResponseCtx(ctx: discord.ext.commands.context.Context | None, mainData: dict, dm_user: discord.User):
     if len(mainData) == 0:
@@ -180,8 +173,10 @@ async def _sendResponseCtx(ctx: discord.ext.commands.context.Context | None, mai
         embed: discord.Embed | None = data.get("embed", None)
         dm_messages: list = data.get("dm_messages", [])
         dm_embeds: list = data.get("dm_embeds", [])
+        dm_buttons: list = data.get("dm_buttons", [])
         channel_embeds: list = data.get("channel_embeds", [])
         channel_messages: list = data.get("channel_messages", [])
+        channel_buttons: list = data.get("channel_buttons", [])
         channel: discord.TextChannel | None = data.get("channel", None)
         button_view: discord.ui.View | None = data.get("button", None)
 
@@ -201,6 +196,9 @@ async def _sendResponseCtx(ctx: discord.ext.commands.context.Context | None, mai
             for dm in dm_messages:
                 await dm_user.send(dm)
 
+            for dm_but in dm_buttons:
+                await dm_user.send(view=dm_but())
+
         if channel is not None:
             try:
                 for ch_emb in channel_embeds:
@@ -210,6 +208,11 @@ async def _sendResponseCtx(ctx: discord.ext.commands.context.Context | None, mai
             try:
                 for ch_msg in channel_messages:
                     await channel.send(ch_msg)
+            except Exception:
+                pass
+            try:
+                for ch_button in channel_buttons:
+                    await channel.send(view=ch_button())
             except Exception:
                 pass
 
@@ -300,7 +303,7 @@ def _buildDMData(command: str, msg: str, placeholders: dict) -> tuple:
             if emb is not None:
                 built_dm_embeds.append(emb.copy())
 
-    dm_buttons: list = configManager.getDMButtons(msg).copy()
+    dm_buttons: list = configManager.getDMViews(msg).copy()
     built_dm_buttons = []
     if len(dm_buttons) > 0:
         for dm_button in dm_buttons:
@@ -314,65 +317,42 @@ def _buildDMData(command: str, msg: str, placeholders: dict) -> tuple:
 def _buildButtonData(msg: str, placeholders: dict) -> discord.ui.View | None:
     if not configManager.hasButton(msg):
         return None
+    # msg is view
 
-    label: str = _usePlaceholders(configManager.getButtonText(msg), placeholders)
-    button_style: str = configManager.getButtonStyle(msg).replace(" ", "")
-    button_style_obj = discord.ButtonStyle.primary
-
-    if button_style == "secondary":
-        button_style_obj = discord.ButtonStyle.secondary
-
-    elif button_style == "success":
-        button_style_obj = discord.ButtonStyle.success
-
-    elif button_style == "danger":
-        button_style_obj = discord.ButtonStyle.danger
-
-    elif button_style == "link":
-        button_style_obj = discord.ButtonStyle.link
-
-    elif button_style == "blurple":
-        button_style_obj = discord.ButtonStyle.blurple
-
-    elif button_style == "grey":
-        button_style_obj = discord.ButtonStyle.grey
-
-    elif button_style == "gray":
-        button_style_obj = discord.ButtonStyle.gray
-
-    elif button_style == "green":
-        button_style_obj = discord.ButtonStyle.green
-
-    elif button_style == "red":
-        button_style_obj = discord.ButtonStyle.red
-
-    elif button_style == "url":
-        button_style_obj = discord.ButtonStyle.url
-
+    allButtonLabels: list = configManager.getButtonsByView(msg)
     eph = configManager.getEphPlaceholder()
+    button_data = []
+    for label in allButtonLabels:
+        button_style_obj = getattr(discord.ButtonStyle, configManager.getButtonStyle(msg.replace(" ", "")
+                                                                                     + " " +
+                                                                                     str(label)
+                                                                                     .replace(" ", "")))
+
+        async def onPress(interaction: discord.Interaction, button: discord.Button):
+            pass
+
+        button_data.append((_usePlaceholders(label, placeholders), button_style_obj, onPress))
 
     class TempView(discord.ui.View):
         def __init__(self):
             super().__init__(timeout=None)
+            # Create buttons based on the button data
+            for button_label, style, callback in button_data:
+                self.add_item(discord.ui.Button(label=button_label, style=style))
 
         @staticmethod
         def test():
-            return "yes " if configManager.isActivePlaceholder(eph) and eph in label else "no"
+            return "yes" if configManager.isActivePlaceholder(eph) and eph in msg else "no"
 
         async def on_timeout(self):
             for child in self.children:
                 child.disabled = False
 
-        @discord.ui.button(label=label, style=button_style_obj)
-        async def create_staff_app(self, interaction: discord.Interaction, button: discord.Button):
-            pass
-
     return TempView
 
 
-def _MainBuild(bot: commands.Bot, command_name: str, error_name: str = "", placeholders: dict = dict(),
-               interaction: discord.Interaction = None,
-               ctx: discord.ext.commands.context.Context | None = None) -> dict:
+def _addDefaultPlaceholder(placeholders: dict, interaction: discord.Interaction = None,
+                           ctx: discord.ext.commands.context.Context | None = None):
     if (configManager.getXPPlaceholder() not in placeholders.keys() or
             configManager.getLevelPlaceholder() not in placeholders.keys()):
         if interaction is not None:
@@ -382,7 +362,12 @@ def _MainBuild(bot: commands.Bot, command_name: str, error_name: str = "", place
         elif ctx is not None:
             placeholders[configManager.getXPPlaceholder()] = str(configManager.getUserXP(ctx.author.id))
             placeholders[configManager.getLevelPlaceholder()] = str(configManager.getUserLevel(ctx.author.id))
+    return placeholders
 
+
+def _handleErrorMainBuild(bot: commands.Bot, command_name: str, error_name: str,
+                          placeholders: dict, interaction: discord.Interaction = None,
+                          ctx: discord.ext.commands.context.Context | None = None):
     if len(error_name.replace(" ", "")) > 0:
         message: list = _buildMessageData(command_name, error_name, placeholders)
         (dm, dm_embeds, dm_buttons) = _buildDMData(command_name, error_name, placeholders)
@@ -390,31 +375,30 @@ def _MainBuild(bot: commands.Bot, command_name: str, error_name: str = "", place
             (built_channel_embeds, built_channel_messages, channel, built_channel_buttons) = (
                 _buildChannelData(bot, command_name, error_name, placeholders, interaction=interaction))
 
-            return {error_name: {"messages": message,
-                                 "embed": _buildEmbed(command_name, error_name, placeholders),
-                                 "dm_messages": dm,
-                                 "dm_embeds": dm_embeds,
-                                 "dm_buttons": dm_buttons,
-                                 "channel_embeds": built_channel_embeds,
-                                 "channel_messages": built_channel_messages,
-                                 "channel_buttons": built_channel_buttons,
-                                 "channel": channel,
-                                 "button": _buildButtonData(error_name, placeholders)}}
         elif ctx is not None:
             (built_channel_embeds, built_channel_messages, channel, built_channel_buttons) = (
                 _buildChannelData(bot, command_name, error_name, placeholders, ctx=ctx))
 
-            return {error_name: {"messages": message,
-                                 "embed": _buildEmbed(command_name, error_name, placeholders),
-                                 "dm_messages": dm,
-                                 "dm_embeds": dm_embeds,
-                                 "dm_buttons": dm_buttons,
-                                 "channel_embeds": built_channel_embeds,
-                                 "channel_messages": built_channel_messages,
-                                 "channel_buttons": built_channel_buttons,
-                                 "channel": channel,
-                                 "button": _buildButtonData(error_name, placeholders)}}
+        else:
+            (built_channel_embeds, built_channel_messages, channel, built_channel_buttons) = (
+                _buildChannelData(bot, command_name, error_name, placeholders))
 
+        return {error_name: {"messages": message,
+                             "embed": _buildEmbed(command_name, error_name, placeholders),
+                             "dm_messages": dm,
+                             "dm_embeds": dm_embeds,
+                             "dm_buttons": dm_buttons,
+                             "channel_embeds": built_channel_embeds,
+                             "channel_messages": built_channel_messages,
+                             "channel_buttons": built_channel_buttons,
+                             "channel": channel,
+                             "button": _buildButtonData(error_name, placeholders)}}
+    return {}
+
+
+def _handleMultipleMessages(bot: commands.Bot, command_name: str,
+                            placeholders: dict, interaction: discord.Interaction = None,
+                            ctx: discord.ext.commands.context.Context | None = None):
     multi_message = dict()
 
     for msg in configManager.getCommandData(command_name).get("message_names", []):
@@ -425,32 +409,36 @@ def _MainBuild(bot: commands.Bot, command_name: str, error_name: str = "", place
             (built_channel_embeds, built_channel_messages, channel, built_channel_buttons) = (
                 _buildChannelData(bot, command_name, msg, placeholders, interaction=interaction))
 
-            multi_message[msg] = {"messages": message,
-                                  "embed": _buildEmbed(command_name, msg, placeholders),
-                                  "dm_messages": dm,
-                                  "dm_embeds": dm_embeds,
-                                  "dm_buttons": dm_buttons,
-                                  "channel_embeds": built_channel_embeds,
-                                  "channel_messages": built_channel_messages,
-                                  "channel_buttons": built_channel_buttons,
-                                  "channel": channel,
-                                  "button": _buildButtonData(msg, placeholders)}
-        else:
+        elif ctx is not None:
             (built_channel_embeds, built_channel_messages, channel, built_channel_buttons) = (
                 _buildChannelData(bot, command_name, msg, placeholders, ctx=ctx))
 
-            multi_message[msg] = {"messages": message,
-                                  "embed": _buildEmbed(command_name, msg, placeholders),
-                                  "dm_messages": dm,
-                                  "dm_embeds": dm_embeds,
-                                  "dm_buttons": dm_buttons,
-                                  "channel_embeds": built_channel_embeds,
-                                  "channel_messages": built_channel_messages,
-                                  "channel_buttons": built_channel_buttons,
-                                  "channel": channel,
-                                  "button": _buildButtonData(msg, placeholders)}
+        else:
+            (built_channel_embeds, built_channel_messages, channel, built_channel_buttons) = (
+                _buildChannelData(bot, command_name, msg, placeholders))
+
+        multi_message[msg] = {"messages": message,
+                              "embed": _buildEmbed(command_name, msg, placeholders),
+                              "dm_messages": dm,
+                              "dm_embeds": dm_embeds,
+                              "dm_buttons": dm_buttons,
+                              "channel_embeds": built_channel_embeds,
+                              "channel_messages": built_channel_messages,
+                              "channel_buttons": built_channel_buttons,
+                              "channel": channel,
+                              "button": _buildButtonData(msg, placeholders)}
 
     return multi_message
+
+
+def _MainBuild(bot: commands.Bot, command_name: str, error_name: str = "", placeholders: dict = dict(),
+               interaction: discord.Interaction = None,
+               ctx: discord.ext.commands.context.Context | None = None) -> dict:
+    placeholders = _addDefaultPlaceholder(placeholders, interaction=interaction, ctx=ctx)
+    error_data = _handleErrorMainBuild(bot, command_name, error_name, placeholders,
+                                       interaction=interaction, ctx=ctx)
+    return _handleMultipleMessages(bot, command_name, placeholders,
+                                   interaction=interaction, ctx=ctx) if len(error_data) == 0 else error_data
 
 
 async def handleMessage(bot: commands.Bot, interaction: discord.Interaction, command_name: str, error_name: str = "",
@@ -684,7 +672,7 @@ def isUserRestrictedCtx(ctx: discord.ext.commands.context.Context, commandName: 
         else:
             reason += "all;"
 
-    usersId: list = res.get("users_id", None)
+    usersId: list | None = res.get("users_id", None)
     if usersId is not None and ctx.author.id not in usersId:
         reason += "user id;"
 
@@ -734,6 +722,7 @@ def getUserLevel(user: discord.Member, isMax: bool) -> int:
         res: int | None = configManager.getLevelExceptionalUserMax(user.id)
     else:
         res: int | None = configManager.getLevelExceptionalUserMin(user.id)
+
     if res is not None:
         return int(res)
 

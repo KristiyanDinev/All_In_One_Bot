@@ -51,6 +51,16 @@ class ConfigManager:
         self.configData = self._readJSON(self.config_path)
         self.messagesData = self._readJSON(self.message_path)
 
+    def getButtonsByView(self, view: str) -> list:
+        return list(self.messagesData.get("views", {}).get(view, {}).keys())
+
+    def getButtonStyle(self, combined: str) -> str:
+        res = combined.split(" ")
+        return str(self.messagesData.get("views", {}).get(res[0], {}).get(res[1], {}).get("style", "green"))
+
+    def getCogData(self) -> dict:
+        return dict(self.configData.get('cog_data', {}))
+
     def getBotToken(self) -> str:
         return str(self.configData.get("discord_bot_token", ""))
 
@@ -67,15 +77,14 @@ class ConfigManager:
         return str(self.messagesData.get("cog_not_found_status", "not found"))
 
     def hasButton(self, name: str) -> bool:
-        res: dict | None = self.messagesData.get("buttons", {}).get(name, None)
+        res: dict | None = self.messagesData.get("views", {}).get(name, None)
         return res is not None
 
     def getButtonText(self, name: str) -> str:
-        return str(self.messagesData.get("buttons", {}).get(name, {}).get("label", "No label for "+name))
+        return str(self.messagesData.get("views", {}).get(name, {}).get("label", "No label for " + name))
 
     def getButtonStyle(self, name: str) -> str:
-        return str(self.messagesData.get("buttons", {}).get(name, {}).get("style", "green"))
-
+        return str(self.messagesData.get("views", {}).get(name, {}).get("style", "green"))
 
     def getBlacklistedWords(self) -> list:
         return self.configData.get("blacklist_words", [])
@@ -117,7 +126,7 @@ class ConfigManager:
         return list(self.messagesData.get("channel_messages", {}).get(name, {}).get("embeds", []))
 
     def getButtonsByChannel(self, name: str) -> list:
-        return list(self.messagesData.get("channel_messages", {}).get(name, {}).get("buttons", []))
+        return list(self.messagesData.get("channel_messages", {}).get(name, {}).get("views", []))
 
     def getChannelIdByName(self, name: str) -> int:
         return int(self.configData.get("channels", {}).get(name, 0))
@@ -216,8 +225,8 @@ class ConfigManager:
     def getDMEmbeds(self, message) -> list:
         return self.messagesData.get("dm", {}).get(message, {}).get("embeds", [])
 
-    def getDMButtons(self, message) -> list:
-        return self.messagesData.get("dm", {}).get(message, {}).get("buttons", [])
+    def getDMViews(self, message) -> list:
+        return self.messagesData.get("dm", {}).get(message, {}).get("views", [])
 
     def getCommandActiveMessages(self, command_name) -> list:
         return self.getCommandData(command_name).get("message_names", [])

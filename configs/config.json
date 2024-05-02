@@ -4,6 +4,12 @@
         "xd",
         "sss"
     ],
+    "cog_data": {
+        "Leveling": "leveling_cog",
+        "Moderator": "moderator_cog",
+        "Warnings": "warning_cog",
+        "Utils": "utils_cog"
+    },
     "warnings": {
         "warns": 3,
         "warn-1": {
@@ -44,8 +50,13 @@
         }
     },
     "channels": {
-        "mymessage": 990694654636884008,
-        "ready": 990694654636884008
+        "mymessage": 990966688142995487,
+        "ready": 990966688142995487
+    },
+    "actions": {
+        "idk": {
+            "messages": ["test_msg"]
+        }
     },
     "webhooks": {
         "update_hook": "https://discord.com/api/webhooks/1234425760694009856/6qzNKIqqIzSmCaLMAZVoiWmSPtTHgCI5j81rhIqrnKLQey2ECqSo591oY6V-YQbdd5ur"

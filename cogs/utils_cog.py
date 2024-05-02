@@ -24,7 +24,7 @@ class UtilsCog(commands.Cog, name="Utils"):
             await handleInvalidArg(self.bot, interaction, "disablecog")
             return
 
-        given_cog_file_name: str | None = CogsData.get(cog)
+        given_cog_file_name: str | None = configManager.getCogData.get(cog, None)
         if given_cog_file_name is None:
             await handleInvalidArg(self.bot, interaction, "disablecog")
             return
@@ -47,7 +47,7 @@ class UtilsCog(commands.Cog, name="Utils"):
             await handleInvalidArg(self.bot, interaction, "enablecog")
             return
 
-        given_cog_file_name: str | None = CogsData.get(cog)
+        given_cog_file_name: str | None = configManager.getCogData.get(cog, None)
         if given_cog_file_name is None:
             await handleInvalidArg(self.bot, interaction, "enablecog")
             return
@@ -64,7 +64,7 @@ class UtilsCog(commands.Cog, name="Utils"):
         if await handleRestricted(self.bot, interaction, "listcog"):
             return
 
-        for name, file_name in CogsData.items():
+        for name, file_name in configManager.getCogData().items():
             try:
                 await self.bot.load_extension(f"cogs.{file_name}")
 
