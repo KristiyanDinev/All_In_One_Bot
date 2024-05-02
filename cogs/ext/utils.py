@@ -160,7 +160,7 @@ async def _sendResponse(interaction: discord.Interaction, mainData: dict, dm_use
                 pass
 
         if button_view is not None:
-            await _handleMessageResponse(None, None, button_view, None, button_view.test() == "yes",
+            await _handleMessageResponse(None, None, button_view, None, button_view.is_active_placeholder,
                                          interaction=interaction)
 
 
@@ -221,7 +221,7 @@ async def _sendResponseCtx(ctx: discord.ext.commands.context.Context | None, mai
 
         if button_view is not None:
             await _handleMessageResponse(None, None, button_view,
-                                         None, button_view.test() == "yes", ctx=ctx)
+                                         None, button_view.is_active_placeholder, ctx=ctx)
 
 
 def _usePlaceholders(msg: str, placeholders: dict) -> str:
@@ -317,33 +317,41 @@ def _buildDMData(bot: commands.Bot, command: str, msg: str, placeholders: dict) 
     return (built_dm_msg, built_dm_embeds, built_dm_buttons)
 
 
+class ViewButton(discord.ui.Button):
+    def __init__(self, data: dict, **kwargs):
+        super().__init__(**kwargs)
+        self.data = data
+
+    async def callback(self, interaction: discord.Interaction):
+        print("Help")
+
+class TempView(discord.ui.View):
+    is_active_placeholder = False
+    allButtonLabels = []
+    view = ""
+
+    def __init__(self):
+        super().__init__(timeout=None)
+        if len(self.view) > 0:
+            for label in self.allButtonLabels:
+                comb = self.view.replace(" ", "") + " " + str(label).replace(" ", "")
+                style = getattr(discord.ButtonStyle, configManager.getButtonStyle(comb))
+                custom_id = configManager.getButtonCustomID(comb)
+                self.add_item(ViewButton(label=label, style=style, custom_id=custom_id, data={}))
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = False
+
+
 def _buildButtonData(bot: commands.Bot, msg: str, placeholders: dict) -> discord.ui.View | None:
     if not configManager.hasButton(msg):
         return None
 
-    allButtonLabels = configManager.getButtonsByView(msg)
     eph = configManager.getEphPlaceholder()
-    is_active_placeholder = configManager.isActivePlaceholder(eph) and eph in msg
-
-    class TempView(discord.ui.View):
-        def __init__(self):
-            super().__init__(timeout=None)
-            for label in allButtonLabels:
-                comb = msg.replace(" ", "") + " " + str(label).replace(" ", "")
-                style = getattr(discord.ButtonStyle, configManager.getButtonStyle(comb))
-                custom_id = configManager.getButtonCustomID(comb)
-
-                class ViewButton(discord.ui.Button):
-                    async def callback(self, interaction: discord.Interaction):
-                        print("Help")
-
-                self.add_item(ViewButton(label=label, style=style, custom_id=custom_id))
-
-        async def on_timeout(self):
-            for child in self.children:
-                child.disabled = False
-
-    TempView.test = lambda: "yes" if is_active_placeholder else "no"
+    TempView.view = msg
+    TempView.allButtonLabels = configManager.getButtonsByView(msg)
+    TempView.is_active_placeholder = configManager.isActivePlaceholder(eph) and eph in msg
     return TempView
 
 
