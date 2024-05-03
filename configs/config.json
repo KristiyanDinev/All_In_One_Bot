@@ -54,13 +54,16 @@
     },
     "role_management": {
         "test_role": {
-            "all_roles_id": [990697510198730802, 916952329591345185],
+            "all_roles_id": [],
             "any_roles_id": []
         }
     },
     "actions": {
         "idk": {
-            "messages": ["@user.test_role"]
+            "messages": ["@user.test_role"],
+            "commands": {
+                "addrole": ["@user.id", "999335117279469739"]
+            }
         }
     },
     "webhooks": {
@@ -88,5 +91,5 @@
             "all": true
         }
     },
-    "discord_bot_token": ""
+    "discord_bot_token": "OTYzMTA5ODM0NjE2NjE0OTEy.GI8BdI.F8r5UHljGr239jsWKLOyF5m7hn8xLVClJqvQO8"
 }

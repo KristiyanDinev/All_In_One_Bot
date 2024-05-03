@@ -1,7 +1,10 @@
 import os
 import sys
-
 from cogs.ext.utils import *
+from cogs.leveling_cog import LevelingCog
+from cogs.moderator_cog import ModeratorCog
+from cogs.warning_cog import WarningsCommands
+from cogs.utils_cog import UtilsCog
 
 """
 - ``0x<hex>``
@@ -86,6 +89,11 @@ def FindAll(directory: str, extension: str = ".py", exclusions: list = ["__init_
 
     return cog_locations
 
+
+leveling_cog = LevelingCog(bot)
+moderator_cog = ModeratorCog(bot)
+warning_cog = WarningsCommands(bot)
+util_cog = UtilsCog(bot)
 
 @bot.event
 async def on_ready():

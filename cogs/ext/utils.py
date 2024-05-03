@@ -13,7 +13,7 @@ configManager = ConfigManager("configs/config", "configs/messages",
                               "configs/warnings",
                               "configs/commands", "configs/levels")
 
-
+from All_In_One_Bot.main import warning_cog, leveling_cog, util_cog, moderator_cog
 async def setup(bot: commands.Bot):
     pass
 
@@ -318,9 +318,10 @@ def _buildDMData(bot: commands.Bot, command: str, msg: str, placeholders: dict) 
 
 
 class ViewButton(discord.ui.Button):
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: dict, bot: commands.Bot, **kwargs):
         super().__init__(**kwargs)
         self.actions: list = list(data['actions']).copy()
+        self.bot = bot
         # 'idk' -> [1, 2, 3]
 
         self.actionData: dict = dict()
@@ -331,17 +332,23 @@ class ViewButton(discord.ui.Button):
             self.actionData[action] = allActionData
 
     def checkIf(self, role_manager: str, hasRoles: list) -> bool:
-        needToHaveAll = configManager.getAllRolesIDByRoleManager(role_manager).copy()
-        anyRole = configManager.getAnyRolesIDByRoleManager(role_manager).copy()
-        return allRolesContains(needToHaveAll, hasRoles) or anyRolesContains(hasRoles, anyRole)
+        return (allRolesContains(configManager.getAllRolesIDByRoleManager(role_manager).copy(), hasRoles) or
+                anyRolesContains(hasRoles, configManager.getAnyRolesIDByRoleManager(role_manager).copy()))
 
     def usePlaceholders(self, msg: str, interaction: discord.Interaction) -> str:
         msg = msg.replace("@user.id", str(interaction.user.id))
         msg = msg.replace("@user.name", str(interaction.user.name))
+        msg = msg.replace("@user.avatar.is_animated", str(interaction.user.avatar.is_animated()))
 
-        bot_user = interaction.client.user
-        msg = msg.replace("@bot.id", str(bot_user.id))
-        msg = msg.replace("@bot.name", str(bot_user.name))
+        msg = msg.replace("@channel.id", str(interaction.channel.id))
+        msg = msg.replace("@channel.name", str(interaction.channel.name))
+        msg = msg.replace("@channel.type", str(interaction.channel.type.name))
+
+        bot_user: discord.ClientUser | None = interaction.client.user
+        if bot_user is not None:
+            msg = msg.replace("@bot.id", str(bot_user.id))
+            msg = msg.replace("@bot.name", str(bot_user.name))
+            msg = msg.replace("@bot.latency", str(interaction.client.latency))
 
         msg = msg.replace("@guild.id", str(interaction.guild.id))
         msg = msg.replace("@guild.name", str(interaction.guild.name))
@@ -350,7 +357,7 @@ class ViewButton(discord.ui.Button):
             bot_role_manager: str = "@bot." + role_manager
             user_role_manager: str = "@user." + role_manager
             guild_role_manager: str = "@guild." + role_manager
-            if bot_role_manager in msg:
+            if bot_role_manager in msg and bot_user is not None:
                 bot_member: Member | None = interaction.guild.get_member(bot_user.id)
                 if bot_member is not None and self.checkIf(role_manager,
                                                            getRoleIdFromRoles(bot_member.roles.copy()).copy()):
@@ -371,11 +378,41 @@ class ViewButton(discord.ui.Button):
             await handleMessage(interaction.client, interaction,
                                 self.usePlaceholders(msg, interaction), dm_user=interaction.user)
 
+    async def handleCogCommandExecution(self, cog: commands.Cog, interaction: discord.Interaction,
+                                        command_name: str,
+                                        command: discord.app_commands.commands.ContextMenu, final_args: list):
+        for co in cog.get_app_commands():
+            if co.name == command_name:
+                try:
+                    await command.callback(cog, interaction, *final_args)
+                except Exception as e:
+                    await handleErrors(interaction.client, interaction, command_name, e)
+                break
+
+    async def handleActionCommands(self, interaction: discord.Interaction, command_names: dict):
+        for command in command_names.keys():
+            comm: discord.app_commands.commands.ContextMenu | None = interaction.client.tree.get_command(command)
+            if comm is not None:
+                final_args = []
+                for arg in command_names.get(command):
+                    final_args.append(self.usePlaceholders(arg, interaction))
+
+                await self.handleCogCommandExecution(leveling_cog, interaction, command, comm, final_args)
+                await self.handleCogCommandExecution(moderator_cog, interaction, command, comm, final_args)
+                await self.handleCogCommandExecution(util_cog, interaction, command, comm, final_args)
+                await self.handleCogCommandExecution(warning_cog, interaction, command, comm, final_args)
+
+
     async def callback(self, interaction: discord.Interaction):
         for action in self.actionData.keys():
             for doing in self.actionData.get(action).keys():
                 if doing == "messages":
-                    await self.handleActionMessages(interaction, list(self.actionData.get(action).get("messages")))
+                    await self.handleActionMessages(interaction,
+                                                    list(self.actionData.get(action, {}).get("messages", [])).copy())
+
+                elif doing == "commands":
+                    await self.handleActionCommands(interaction,
+                                                    dict(self.actionData.get(action, {}).get("commands", {})).copy())
 
 
 class TempView(discord.ui.View):
@@ -383,6 +420,7 @@ class TempView(discord.ui.View):
     allButtonLabels = []
     view = ""
     timeout = None
+    bot = None
 
     def __init__(self):
         super().__init__(timeout=self.timeout)
@@ -393,6 +431,7 @@ class TempView(discord.ui.View):
                 self.add_item(ViewButton(label=label,
                                          style=getattr(discord.ButtonStyle, configManager.getButtonStyle(comb)),
                                          custom_id=configManager.getButtonCustomID(comb),
+                                         bot=self.bot,
                                          data={"actions": configManager.getActions(comb)}))
 
     if timeout is None:
@@ -407,6 +446,7 @@ def _buildButtonData(bot: commands.Bot, msg: str, placeholders: dict) -> discord
 
     eph = configManager.getEphPlaceholder()
     TempView.view = msg
+    TempView.bot = bot
     TempView.timeout = configManager.getButtonTimeout(msg)
     TempView.allButtonLabels = configManager.getButtonsByView(msg)
     TempView.is_active_placeholder = configManager.isActivePlaceholder(eph) and eph in msg
@@ -618,14 +658,14 @@ async def handleInvalidChannels(bot: commands.Bot, interaction: discord.Interact
 
 def get_role_id_from_mention(role_mention: str) -> int:
     try:
-        return int(role_mention.replace("<@&", "")[:-1])
+        return int(role_mention.replace("<@&", "")[:-1]) if "<@" in role_mention else int(role_mention)
     except Exception:
         return 0
 
 
 def get_member_id_from_mention(member_mention: str) -> int:
     try:
-        return int(member_mention.replace("<@", "")[:-1])
+        return int(member_mention.replace("<@", "")[:-1]) if "<@" in member_mention else int(member_mention)
     except Exception:
         return 0
 
@@ -699,7 +739,7 @@ def allRolesContains(roles_id: list, roles_id2: list) -> bool:
     for role_id in roles_id:
         if role_id not in roles_id2:
             return False
-    return True
+    return True if len(roles_id) > 0 else False
 
 
 def getWarningRolesFromLevel(interaction: discord.Interaction, level: int) -> List[Role]:
