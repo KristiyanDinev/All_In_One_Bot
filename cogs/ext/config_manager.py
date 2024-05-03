@@ -51,16 +51,21 @@ class ConfigManager:
         self.configData = self._readJSON(self.config_path)
         self.messagesData = self._readJSON(self.message_path)
 
-    def getActionData(self, action: str) -> dict:
-        return dict(self.configData.get('actions', {}).get(action, {}))
+    def getRoleManagements(self) -> list:
+        return list(self.configData.get("role_management", {}).keys())
 
-    def getButtonArguments(self, view: str, button: str) -> dict:
-        data: dict = {}
-        actions = list(self.messagesData.get("views", {}).get(view, {}).get(button, {}).get("actions", {}).keys())
-        for action in actions:
-            data[action] = (self.messagesData.get("views", {}).get(view, {}).get(button, {}).get("actions", {})
-                            .get(action, []))
-        return data
+    def getAllRolesIDByRoleManager(self, manager: str) -> list:
+        return list(self.configData.get("role_management", {}).get(manager, {}).get("all_roles_id", []))
+
+    def getAnyRolesIDByRoleManager(self, manager: str) -> list:
+        return list(self.configData.get("role_management", {}).get(manager, {}).get("any_roles_id", []))
+
+    def getActionData(self, action: str) -> dict:
+        return dict(self.configData.get("actions", {}).get(action, {}))
+
+    def getActions(self, combined: str) -> list:
+        res = combined.split(" ")
+        return list(self.messagesData.get("views", {}).get(res[0], {}).get(res[1], {}).get("actions", []))
 
     def getButtonsByView(self, view: str) -> list:
         res = list(self.messagesData.get("views", {}).get(view, {}).keys())

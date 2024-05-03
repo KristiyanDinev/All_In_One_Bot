@@ -52,9 +52,15 @@
     "channels": {
         "ready": 990966688142995487
     },
+    "role_management": {
+        "test_role": {
+            "all_roles_id": [990697510198730802, 916952329591345185],
+            "any_roles_id": []
+        }
+    },
     "actions": {
         "idk": {
-            "messages": ["/1/"]
+            "messages": ["@user.test_role"]
         }
     },
     "webhooks": {

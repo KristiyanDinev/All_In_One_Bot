@@ -320,40 +320,62 @@ def _buildDMData(bot: commands.Bot, command: str, msg: str, placeholders: dict) 
 class ViewButton(discord.ui.Button):
     def __init__(self, data: dict, **kwargs):
         super().__init__(**kwargs)
-        self.data = data.copy()
-        self.args: dict = dict(data['args']).copy()
+        self.actions: list = list(data['actions']).copy()
         # 'idk' -> [1, 2, 3]
 
         self.actionData: dict = dict()
         # 'idk' -> {'messages' : [....]}
 
-        for action in self.args.keys():
+        for action in self.actions:
             allActionData: dict = configManager.getActionData(action).copy()
-            for actionName in allActionData.keys():
-                if action in self.args.keys():
-                        value = allActionData[actionName]
-                        if type(value) is list:
-                            for itemInd, item in enumerate(value):
-                                for index, placeholder in enumerate(self.args.get(action)):
-                                    value[itemInd] = str(item).replace("/" + str(index + 1) + "/", placeholder)
-                        #else:
-                        #    value = (str(value).replace("/" + str(index) + "/", placeholder))
-
             self.actionData[action] = allActionData
 
+    def checkIf(self, role_manager: str, hasRoles: list) -> bool:
+        needToHaveAll = configManager.getAllRolesIDByRoleManager(role_manager).copy()
+        anyRole = configManager.getAnyRolesIDByRoleManager(role_manager).copy()
+        return allRolesContains(needToHaveAll, hasRoles) or anyRolesContains(hasRoles, anyRole)
+
+    def usePlaceholders(self, msg: str, interaction: discord.Interaction) -> str:
+        msg = msg.replace("@user.id", str(interaction.user.id))
+        msg = msg.replace("@user.name", str(interaction.user.name))
+
+        bot_user = interaction.client.user
+        msg = msg.replace("@bot.id", str(bot_user.id))
+        msg = msg.replace("@bot.name", str(bot_user.name))
+
+        msg = msg.replace("@guild.id", str(interaction.guild.id))
+        msg = msg.replace("@guild.name", str(interaction.guild.name))
+
+        for role_manager in configManager.getRoleManagements():
+            bot_role_manager: str = "@bot." + role_manager
+            user_role_manager: str = "@user." + role_manager
+            guild_role_manager: str = "@guild." + role_manager
+            if bot_role_manager in msg:
+                bot_member: Member | None = interaction.guild.get_member(bot_user.id)
+                if bot_member is not None and self.checkIf(role_manager,
+                                                           getRoleIdFromRoles(bot_member.roles.copy()).copy()):
+                    msg = msg.replace(bot_role_manager, role_manager)
+
+            elif user_role_manager in msg:
+                if self.checkIf(role_manager, getRoleIdFromRoles(interaction.user.roles.copy()).copy()):
+                    msg = msg.replace(user_role_manager, role_manager)
+
+            elif guild_role_manager in msg:
+                if self.checkIf(role_manager, getRoleIdFromRoles(list(interaction.guild.roles).copy()).copy()):
+                    msg = msg.replace(user_role_manager, role_manager)
+
+        return msg
 
     async def handleActionMessages(self, interaction: discord.Interaction, messages_names: list):
         for msg in messages_names:
-            await handleMessage(interaction.client, interaction, msg, dm_user=interaction.user)
+            await handleMessage(interaction.client, interaction,
+                                self.usePlaceholders(msg, interaction), dm_user=interaction.user)
 
     async def callback(self, interaction: discord.Interaction):
         for action in self.actionData.keys():
             for doing in self.actionData.get(action).keys():
                 if doing == "messages":
                     await self.handleActionMessages(interaction, list(self.actionData.get(action).get("messages")))
-
-
-
 
 
 class TempView(discord.ui.View):
@@ -371,7 +393,7 @@ class TempView(discord.ui.View):
                 self.add_item(ViewButton(label=label,
                                          style=getattr(discord.ButtonStyle, configManager.getButtonStyle(comb)),
                                          custom_id=configManager.getButtonCustomID(comb),
-                                         data={"args": configManager.getButtonArguments(self.view, label)}))
+                                         data={"actions": configManager.getActions(comb)}))
 
     if timeout is None:
         async def on_timeout(self):
@@ -642,6 +664,8 @@ def removeWordsFromBlacklist(words: list):
 def getRoleIdFromRoles(roles: List[Role]) -> list:
     userRolesId = []
     for r in roles:
+        if r.name == "@everyone":
+            continue
         userRolesId.append(r.id)
     return userRolesId
 
@@ -669,6 +693,13 @@ def anyRolesContains(roles_id: list, roles_id2: list) -> bool:
         if role_id in roles_id2:
             return True
     return False
+
+
+def allRolesContains(roles_id: list, roles_id2: list) -> bool:
+    for role_id in roles_id:
+        if role_id not in roles_id2:
+            return False
+    return True
 
 
 def getWarningRolesFromLevel(interaction: discord.Interaction, level: int) -> List[Role]:
@@ -707,11 +738,8 @@ def isUserRestricted(interaction: discord.Interaction, commandName: str) -> str:
         reason += "any roles;"
 
     allRolesId: list | None = res.get("all_roles_id", None)
-    if allRolesId is not None:
-        allRolesId.sort()
-        userRoleId.sort()
-        if allRolesId != userRoleId:
-            reason += "all roles;"
+    if allRolesId is not None and not allRolesContains(userRoleId, allRolesId):
+        reason += "all roles;"
 
     channels_id = res.get("channels_id", None)
     if channels_id is not None and interaction.channel.id not in channels_id:
@@ -739,11 +767,8 @@ def isUserRestrictedCtx(ctx: discord.ext.commands.context.Context, commandName: 
         reason += "any roles;"
 
     allRolesId: list | None = res.get("all_roles_id", None)
-    if allRolesId is not None:
-        allRolesId.sort()
-        userRoleId.sort()
-        if allRolesId != userRoleId:
-            reason += "all roles;"
+    if allRolesId is not None and not allRolesContains(userRoleId, allRolesId):
+        reason += "all roles;"
 
     channels_id = res.get("channels_id", None)
     if channels_id is not None and ctx.channel.id not in channels_id:

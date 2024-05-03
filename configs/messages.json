@@ -5,9 +5,7 @@
       "mybutton": {
         "style": "grey",
         "custom_id": "2q442525",
-        "actions": {
-          "idk": ["level"]
-        }
+        "actions": ["idk"]
       }
     }
   },
