@@ -51,16 +51,34 @@ class ConfigManager:
         self.configData = self._readJSON(self.config_path)
         self.messagesData = self._readJSON(self.message_path)
 
+    def getActionData(self, action: str) -> dict:
+        return dict(self.configData.get('actions', {}).get(action, {}))
+
+    def getButtonArguments(self, view: str, button: str) -> dict:
+        data: dict = {}
+        actions = list(self.messagesData.get("views", {}).get(view, {}).get(button, {}).get("actions", {}).keys())
+        for action in actions:
+            data[action] = (self.messagesData.get("views", {}).get(view, {}).get(button, {}).get("actions", {})
+                            .get(action, []))
+        return data
+
     def getButtonsByView(self, view: str) -> list:
-        return list(self.messagesData.get("views", {}).get(view, {}).keys())
+        res = list(self.messagesData.get("views", {}).get(view, {}).keys())
+        res.remove("timeout")
+        return res
 
     def getButtonStyle(self, combined: str) -> str:
         res = combined.split(" ")
         return str(self.messagesData.get("views", {}).get(res[0], {}).get(res[1], {}).get("style", "green"))
 
+    def getButtonTimeout(self, view: str) -> float | None:
+        res = self.messagesData.get("views", {}).get(view, {}).get("timeout", None)
+        return None if res is None else float(res)
+
     def getButtonCustomID(self, combined: str) -> str:
         res = combined.split(" ")
-        return str(self.messagesData.get("views", {}).get(res[0], {}).get(res[1], {}).get("custom_id", str(random.randint(1, 1000))))
+        return str(self.messagesData.get("views", {}).get(res[0], {}).get(res[1], {}).get("custom_id",
+                                                                                          str(random.randint(1, 1000))))
 
     def getCogData(self) -> dict:
         return dict(self.configData.get('cog_data', {}))

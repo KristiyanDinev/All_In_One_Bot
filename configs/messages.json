@@ -1,11 +1,12 @@
 {
   "views": {
     "mymessage": {
+      "timeout": null,
       "mybutton": {
         "style": "grey",
         "custom_id": "2q442525",
         "actions": {
-          "idk": ["arg0"]
+          "idk": ["level"]
         }
       }
     }
@@ -29,7 +30,7 @@
     "edit_xp_msg": ["Your new xp is /xp/"],
     "simple_dm": ["dm from /username/ say /message/"],
     "sync_msg": ["Synced commands /number/"],
-    "bot_loads": ["I am online"],
+    "bot_loads": ["/username/ is online | ID: /number/"],
     "test_msg": ["Test"]
   },
 

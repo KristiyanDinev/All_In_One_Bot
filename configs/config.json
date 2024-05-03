@@ -50,12 +50,11 @@
         }
     },
     "channels": {
-        "mymessage": 990966688142995487,
         "ready": 990966688142995487
     },
     "actions": {
         "idk": {
-            "messages": ["test_msg"]
+            "messages": ["/1/"]
         }
     },
     "webhooks": {

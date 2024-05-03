@@ -320,28 +320,63 @@ def _buildDMData(bot: commands.Bot, command: str, msg: str, placeholders: dict) 
 class ViewButton(discord.ui.Button):
     def __init__(self, data: dict, **kwargs):
         super().__init__(**kwargs)
-        self.data = data
+        self.data = data.copy()
+        self.args: dict = dict(data['args']).copy()
+        # 'idk' -> [1, 2, 3]
+
+        self.actionData: dict = dict()
+        # 'idk' -> {'messages' : [....]}
+
+        for action in self.args.keys():
+            allActionData: dict = configManager.getActionData(action).copy()
+            for actionName in allActionData.keys():
+                if action in self.args.keys():
+                        value = allActionData[actionName]
+                        if type(value) is list:
+                            for itemInd, item in enumerate(value):
+                                for index, placeholder in enumerate(self.args.get(action)):
+                                    value[itemInd] = str(item).replace("/" + str(index + 1) + "/", placeholder)
+                        #else:
+                        #    value = (str(value).replace("/" + str(index) + "/", placeholder))
+
+            self.actionData[action] = allActionData
+
+
+    async def handleActionMessages(self, interaction: discord.Interaction, messages_names: list):
+        for msg in messages_names:
+            await handleMessage(interaction.client, interaction, msg, dm_user=interaction.user)
 
     async def callback(self, interaction: discord.Interaction):
-        print("Help")
+        for action in self.actionData.keys():
+            for doing in self.actionData.get(action).keys():
+                if doing == "messages":
+                    await self.handleActionMessages(interaction, list(self.actionData.get(action).get("messages")))
+
+
+
+
 
 class TempView(discord.ui.View):
     is_active_placeholder = False
     allButtonLabels = []
     view = ""
+    timeout = None
 
     def __init__(self):
-        super().__init__(timeout=None)
+        super().__init__(timeout=self.timeout)
         if len(self.view) > 0:
             for label in self.allButtonLabels:
                 comb = self.view.replace(" ", "") + " " + str(label).replace(" ", "")
-                style = getattr(discord.ButtonStyle, configManager.getButtonStyle(comb))
-                custom_id = configManager.getButtonCustomID(comb)
-                self.add_item(ViewButton(label=label, style=style, custom_id=custom_id, data={}))
 
-    async def on_timeout(self):
-        for child in self.children:
-            child.disabled = False
+                self.add_item(ViewButton(label=label,
+                                         style=getattr(discord.ButtonStyle, configManager.getButtonStyle(comb)),
+                                         custom_id=configManager.getButtonCustomID(comb),
+                                         data={"args": configManager.getButtonArguments(self.view, label)}))
+
+    if timeout is None:
+        async def on_timeout(self):
+            for child in self.children:
+                child.disabled = False
 
 
 def _buildButtonData(bot: commands.Bot, msg: str, placeholders: dict) -> discord.ui.View | None:
@@ -350,6 +385,7 @@ def _buildButtonData(bot: commands.Bot, msg: str, placeholders: dict) -> discord
 
     eph = configManager.getEphPlaceholder()
     TempView.view = msg
+    TempView.timeout = configManager.getButtonTimeout(msg)
     TempView.allButtonLabels = configManager.getButtonsByView(msg)
     TempView.is_active_placeholder = configManager.isActivePlaceholder(eph) and eph in msg
     return TempView
@@ -357,15 +393,32 @@ def _buildButtonData(bot: commands.Bot, msg: str, placeholders: dict) -> discord
 
 def _addDefaultPlaceholder(placeholders: dict, interaction: discord.Interaction = None,
                            ctx: discord.ext.commands.context.Context | None = None):
-    if (configManager.getXPPlaceholder() not in placeholders.keys() or
-            configManager.getLevelPlaceholder() not in placeholders.keys()):
-        if interaction is not None:
+    if interaction is not None:
+        if configManager.getXPPlaceholder() not in placeholders.keys():
             placeholders[configManager.getXPPlaceholder()] = str(configManager.getUserXP(interaction.user.id))
+
+        if configManager.getLevelPlaceholder() not in placeholders.keys():
             placeholders[configManager.getLevelPlaceholder()] = str(configManager.getUserLevel(interaction.user.id))
 
-        elif ctx is not None:
+        if configManager.getUsernamePlaceholder() not in placeholders.keys():
+            placeholders[configManager.getUsernamePlaceholder()] = interaction.user.name
+
+        if configManager.getNumberPlaceholder() not in placeholders.keys():
+            placeholders[configManager.getNumberPlaceholder()] = str(interaction.user.id)
+
+    elif ctx is not None:
+        if configManager.getXPPlaceholder() not in placeholders.keys():
             placeholders[configManager.getXPPlaceholder()] = str(configManager.getUserXP(ctx.author.id))
+
+        if configManager.getLevelPlaceholder() not in placeholders.keys():
             placeholders[configManager.getLevelPlaceholder()] = str(configManager.getUserLevel(ctx.author.id))
+
+        if configManager.getUsernamePlaceholder() not in placeholders.keys():
+            placeholders[configManager.getUsernamePlaceholder()] = ctx.author.name
+
+        if configManager.getNumberPlaceholder() not in placeholders.keys():
+            placeholders[configManager.getNumberPlaceholder()] = str(ctx.author.id)
+
     return placeholders
 
 
@@ -572,7 +625,7 @@ def getVoiceChannel(interaction: discord.Interaction, channel_id: int) -> None |
     if channel_id == 0:
         return None
     channel = interaction.guild.get_channel(channel_id)
-    return channel if type(channel) == discord.VoiceChannel else None
+    return channel if type(channel) is discord.VoiceChannel else None
 
 
 def addWordsToBlacklist(words: list):
