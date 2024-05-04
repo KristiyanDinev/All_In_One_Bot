@@ -110,3 +110,7 @@ class WarningsCommands(commands.Cog, name="Warnings"):
 
         except Exception as e:
             await handleErrors(interaction, "clearwarnings", e)
+
+    @commands.Cog.listener()
+    async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        return

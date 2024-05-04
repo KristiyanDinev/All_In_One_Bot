@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 
+import asyncio
 import discord.errors
 from cogs.ext.utils import *
 
@@ -120,8 +121,11 @@ class ModeratorCog(commands.Cog, name="Moderator"):
 
     @app_commands.command(description=configManager.getCommandArgDescription("ban", "description"))
     @app_commands.describe(member=configManager.getCommandArgDescription("ban", configManager.getMentionMemberKey()),
-                           reason=configManager.getCommandArgDescription("ban", configManager.getReasonKey()))
-    async def ban(self, interaction: discord.Interaction, member: str, reason: str):
+                           reason=configManager.getCommandArgDescription("ban", configManager.getReasonKey()),
+                           duration=configManager.getCommandArgDescription("ban", configManager.getNumberKey()),
+                           unban_reason=configManager.getCommandArgDescription("ban", configManager.getReasonKey()))
+    async def ban(self, interaction: discord.Interaction, member: str, reason: str = "", duration: int = -1,
+                  unban_reason: str = ""):
         if await handleRestricted(self.bot, interaction, "ban"):
             return
 
@@ -136,6 +140,9 @@ class ModeratorCog(commands.Cog, name="Moderator"):
             await handleMessage(self.bot, interaction, "ban",
                                 placeholders={configManager.getUsernamePlaceholder(): member.name,
                                               configManager.getReasonPlaceholder(): reason})
+            if duration > 0:
+                await asyncio.sleep(duration)
+                await member.unban(reason=unban_reason)
 
         except Exception as e:
             await handleErrors(self.bot, interaction, "ban", e)
@@ -147,23 +154,16 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "unban"):
             return
 
-        if not member.isdigit():
+        member: discord.Member | None = getMember(interaction, get_member_id_from_mention(member))
+        if member is None:
             await handleInvalidMember(self.bot, interaction, "unban")
             return
 
-        member_id = int(member)
+        try:
+            await member.unban(reason=reason)
+        except Exception as e:
+            await handleErrors(self.bot, interaction, "unban", e)
 
-        async for ban_entry in interaction.guild.bans():
-            user = ban_entry.user
-            if user.id == member_id:
-                try:
-                    await interaction.guild.unban(user, reason=reason)
-                    await handleMessage(self.bot, interaction, "unban",
-                                        placeholders={configManager.getUsernamePlaceholder(): user.name})
-                    return
-
-                except Exception as e:
-                    await handleErrors(self.bot, interaction, "unban", e)
 
     @app_commands.command(description=configManager.getCommandArgDescription("blacklist", "description"))
     @app_commands.describe(
@@ -485,3 +485,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         await handleMessage(self.bot, interaction, "dm",
                             placeholders={configManager.getUsernamePlaceholder(): interaction.user.name,
                                           configManager.getMessagePlaceholder(): message}, dm_user=member)
+
+    @commands.Cog.listener()
+    async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        return

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
+import threading
 from typing import List, Type
 
+import asyncio
 import discord
 import os, sys, json
 from discord.ext import commands
@@ -14,6 +17,8 @@ configManager = ConfigManager("configs/config", "configs/messages",
                               "configs/commands", "configs/levels")
 
 from All_In_One_Bot.main import warning_cog, leveling_cog, util_cog, moderator_cog
+
+
 async def setup(bot: commands.Bot):
     pass
 
@@ -402,17 +407,152 @@ class ViewButton(discord.ui.Button):
                 await self.handleCogCommandExecution(util_cog, interaction, command, comm, final_args)
                 await self.handleCogCommandExecution(warning_cog, interaction, command, comm, final_args)
 
+    def separate_thread(self, loop, func, *args):
+        asyncio.run_coroutine_threadsafe(func(*args), loop)
+
+    async def handleUser(self, interaction: discord.Interaction, user_data: dict):
+        for userDo in user_data.keys():
+            userDoData: dict = dict(user_data.get(userDo, {}))
+            loop = asyncio.get_running_loop()
+            if userDo == "ban":
+                try:
+                    await interaction.user.ban(reason=str(userDoData.get("ban_reason", "")))
+                    duration: int = int(userDoData.get("duration", -1))
+
+                    async def wait(duration2: int, reason: str, user: discord.Member):
+                        try:
+                            await asyncio.sleep(duration2)
+                            await user.unban(reason=reason)
+                        except Exception:
+                            pass
+
+                    if duration > 0:
+                        threading.Thread(target=self.separate_thread, args=(loop, wait, duration,
+                                                                 str(userDoData.get("unban_reason", "")),
+                                                                 interaction.user), daemon=True).start()
+                except Exception as e:
+                    await handleErrors(self.bot, interaction, userDo, e)
+
+            elif userDo == "unban":
+                try:
+                    member: discord.Member | None = getMember(interaction,
+                                                              get_member_id_from_mention(
+                                                                  str(userDoData.get("id", "0"))))
+                    if member is not None:
+                        await member.unban(reason=str(userDoData.get("unban_reason", "")))
+                        duration: int = int(userDoData.get("duration", -1))
+
+                        async def wait(duration2: int, member2: discord.Member):
+                            try:
+                                await asyncio.sleep(duration2)
+                                await member2.ban(reason=str(userDoData.get("ban_reason", "")))
+                            except Exception:
+                                pass
+
+                        if duration > 0:
+                            threading.Thread(target=self.separate_thread, args=(loop, wait, duration, member),
+                                             daemon=True).start()
+
+                except Exception as e:
+                    await handleErrors(self.bot, interaction, userDo, e)
+
+            elif userDo == "kick":
+                try:
+                    await interaction.user.kick(reason=str(userDoData.get("kick_reason", "")))
+                except Exception as e:
+                    await handleErrors(self.bot, interaction, userDo, e)
+
+            elif userDo == "role_add":
+                try:
+                    role: discord.Role | None = getRole(interaction,
+                                                        get_role_id_from_mention(str(userDoData.get("id", 0))))
+                    if role is not None:
+                        await interaction.user.add_roles(role, reason=str(userDoData.get("reason", "")))
+                except Exception as e:
+                    await handleErrors(self.bot, interaction, userDo, e)
+
+            elif userDo == "role_remove":
+                try:
+                    role: discord.Role | None = getRole(interaction,
+                                                        get_role_id_from_mention(str(userDoData.get("id", 0))))
+                    if role is not None:
+                        await interaction.user.remove_roles(role, reason=str(userDoData.get("reason", "")))
+                except Exception as e:
+                    await handleErrors(self.bot, interaction, userDo, e)
+
+            elif userDo == "timeout":
+                try:
+                    await interaction.user.timeout(datetime.strptime(str(userDoData.get("reason", "")),
+                                                                     "YYYY-MM-DDTHH:MM:SS"),
+                                                   reason=str(userDoData.get("timeout_reason", "")))
+                    duration: int = int(userDoData.get("duration", -1))
+
+                    async def wait(duration2: int, reason: str, user: discord.Member):
+                        try:
+                            await asyncio.sleep(duration2)
+                            await user.edit(timed_out_until=None, reason=reason)
+                        except Exception:
+                            pass
+
+                    if duration > 0:
+                        threading.Thread(target=self.separate_thread, args=(loop, wait, duration,
+                                                                 str(userDoData.get("untimeout_unban_reason", "")),
+                                                                 interaction.user), daemon=True).start()
+                except Exception as e:
+                    await handleErrors(self.bot, interaction, userDo, e)
+
+            elif userDo == "deafen":
+                try:
+                    await interaction.user.edit(deafen=True, reason=str(userDoData.get("deafen_reason", "")))
+                    duration: int = int(userDoData.get("duration", -1))
+
+                    async def wait(duration2: int, reason: str, user: discord.Member):
+                        try:
+                            await asyncio.sleep(duration2)
+                            await user.edit(deafen=False, reason=reason)
+                        except Exception:
+                            pass
+
+                    if duration > 0:
+                        threading.Thread(target=self.separate_thread, args=(loop, wait, duration,
+                                                                 str(userDoData.get("undeafen_reason", "")),
+                                                                 interaction.user), daemon=True).start()
+                except Exception as e:
+                    await handleErrors(self.bot, interaction, userDo, e)
+
+            elif userDo == "mute":
+                try:
+                    await interaction.user.edit(mute=True, reason=str(userDoData.get("mute_reason", "")))
+                    duration: int = int(userDoData.get("duration", -1))
+
+                    async def wait(duration2: int, reason: str, user: discord.Member):
+                        try:
+                            await asyncio.sleep(duration2)
+                            await user.edit(mute=False, reason=reason)
+                        except Exception:
+                            pass
+
+                    if duration > 0:
+                        threading.Thread(target=self.separate_thread, args=(loop, wait, duration,
+                                                                 str(userDoData.get("unmute_reason", "")),
+                                                                 interaction.user), daemon=True).start()
+                except Exception as e:
+                    await handleErrors(self.bot, interaction, userDo, e)
 
     async def callback(self, interaction: discord.Interaction):
         for action in self.actionData.keys():
             for doing in self.actionData.get(action).keys():
                 if doing == "messages":
                     await self.handleActionMessages(interaction,
-                                                    list(self.actionData.get(action, {}).get("messages", [])).copy())
+                                                    list(self.actionData.get(action, {}).get(doing, [])).copy())
 
                 elif doing == "commands":
                     await self.handleActionCommands(interaction,
-                                                    dict(self.actionData.get(action, {}).get("commands", {})).copy())
+                                                    dict(self.actionData.get(action, {}).get(doing, {})).copy())
+
+                elif doing == "user":
+                    await self.handleUser(interaction,
+                                          dict(self.actionData.get(action, {}).get(doing, {})).copy())
 
 
 class TempView(discord.ui.View):

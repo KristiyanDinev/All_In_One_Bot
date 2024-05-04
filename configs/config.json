@@ -60,9 +60,19 @@
     },
     "actions": {
         "idk": {
-            "messages": ["@user.test_role"],
-            "commands": {
-                "addrole": ["@user.id", "999335117279469739"]
+            "messages": [],
+            "commands": {},
+            "user": {
+                "deafen": {
+                    "duration": 5,
+                    "undeafen_reason": "test",
+                    "deafen_reason": "test"
+                },
+                "mute": {
+                    "duration": -1,
+                    "unmute_reason": "test",
+                    "mute_reason": "test"
+                }
             }
         }
     },
@@ -91,5 +101,5 @@
             "all": true
         }
     },
-    "discord_bot_token": "OTYzMTA5ODM0NjE2NjE0OTEy.GI8BdI.F8r5UHljGr239jsWKLOyF5m7hn8xLVClJqvQO8"
+    "discord_bot_token": ""
 }

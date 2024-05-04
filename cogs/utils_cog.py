@@ -3,7 +3,6 @@ from __future__ import annotations
 import discord.errors
 from cogs.ext.utils import *
 
-
 async def setup(bot: commands.Bot):
     # guilds=[discord.Object(id=....)]
     await bot.add_cog(UtilsCog(bot))
@@ -24,7 +23,7 @@ class UtilsCog(commands.Cog, name="Utils"):
             await handleInvalidArg(self.bot, interaction, "disablecog")
             return
 
-        given_cog_file_name: str | None = configManager.getCogData.get(cog, None)
+        given_cog_file_name: str | None = configManager.getCogData().get(cog, None)
         if given_cog_file_name is None:
             await handleInvalidArg(self.bot, interaction, "disablecog")
             return
@@ -85,5 +84,9 @@ class UtilsCog(commands.Cog, name="Utils"):
                 await handleMessage(self.bot, interaction, "listcog",
                                     placeholders={configManager.getUsernamePlaceholder(): name,
                                                   configManager.getMessagePlaceholder(): configManager.getCogDeactiveStatus()})
+
+    @commands.Cog.listener()
+    async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        return
 
 

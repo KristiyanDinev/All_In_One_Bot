@@ -1,7 +1,6 @@
 
 from cogs.ext.utils import *
 
-
 async def setup(bot: commands.Bot):
     # guilds=[discord.Object(id=....)]
     await bot.add_cog(LevelingCog(bot))
@@ -106,6 +105,9 @@ class LevelingCog(commands.Cog, name="Leveling"):
                                           configManager.getLevelPlaceholder(): level,
                                           configManager.getXPPlaceholder(): configManager.getLevelXP(int(level))})
 
+    @commands.Cog.listener()
+    async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        return
 
 
 
