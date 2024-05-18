@@ -1,23 +1,18 @@
 from __future__ import annotations
-import random
-from cogs.ext.utils import *
-
-
-async def setup(bot: commands.Bot):
-    pass
+import random, os, json
 
 
 class ConfigManager:
-    def __init__(self, file_path, messages_path, warnings_path, commands_folder, levels_path):
-        self.config_path = file_path
-        self.message_path = messages_path
-        self.warning_path = warnings_path
-        self.command_folder = commands_folder
-        self.levels_path = levels_path
-        self.levelsData = self._readJSON(levels_path)
-        self.warningsData = self._readJSON(warnings_path)
-        self.configData = self._readJSON(file_path)
-        self.messagesData = self._readJSON(messages_path)
+    def __init__(self, configPath, messagesConfigPath, warningsConfigPath, commandsFolderPath, levelConfigPath):
+        self.config_path = configPath
+        self.message_path = messagesConfigPath
+        self.warning_path = warningsConfigPath
+        self.command_folder = commandsFolderPath
+        self.levels_path = levelConfigPath
+        self.levelsData = self._readJSON(levelConfigPath)
+        self.warningsData = self._readJSON(warningsConfigPath)
+        self.configData = self._readJSON(configPath)
+        self.messagesData = self._readJSON(messagesConfigPath)
 
     def saveLevelJSON(self) -> None:
         self._saveJSON(self.levels_path, self.levelsData)
@@ -395,82 +390,3 @@ class ConfigManager:
 
     def getXPPlaceholder(self):
         return "/xp/"
-
-
-"""
-    def getBanMemberKey(self):
-        return "ban_member"
-
-    def getUnbanMemberKey(self):
-        return "unban_member"
-
-    def getAddedRoleKey(self):
-        return "add_role"
-
-    def getDeafenKey(self):
-        return "deafen_member"
-
-    def getUndeafenKey(self):
-        return "undeafen_member"
-
-    def getClearWarningsMemberKey(self):
-        return "clear_warinings_member"
-
-    def getInviteKey(self):
-        return "invite"
-
-    def getAddedWordsToBlacklistKey(self):
-        return "added_words_to_blacklist"
-
-    def getWarnMemberKey(self):
-        return "warn_member"
-
-    def getPingKey(self):
-        return "ping"
-
-    def wordDescription(self):
-        return "description"
-
-    def getViewWarnMembersKey(self):
-        return "view_warnings"
-
-    def getKickedMemberKey(self):
-        return "kick_member"
-
-    def getRemoveWarningKey(self):
-        return "remove_warn"
-
-    def getMoveMemberToChannelKey(self):
-        return "move_member_to_channel"
-
-    def getRemoveMessagesKey(self):
-        return "removed_messages"
-
-    def getTimeoutMemberKey(self):
-        return "timeout_member"
-
-    def getRemoveTimeoutMemberKey(self):
-        return "remove_timeout_member"
-
-    def getSlowmodeChannelKey(self):
-        return "slowmode_channel"
-
-    def getVoiceMuteMemberKey(self):
-        return "voice_muted_member"
-
-    def getMentionMemberKey(self):
-        return "mention_member_arg"
-
-    def getVoiceUnmuteMemberKey(self):
-        return "voice_unmute_member"
-
-    def getSayMessageKey(self):
-        return "say_message"
-
-    def getKickFromVoiceKey(self):
-        return "kick_member_from_voice
-        
-     def getAvatarMessageKey(self):
-        return "avatar"
-        
-        """

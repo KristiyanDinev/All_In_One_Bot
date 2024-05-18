@@ -1,10 +1,8 @@
-import os
-import sys
-from cogs.ext.utils import *
-from cogs.leveling_cog import LevelingCog
-from cogs.moderator_cog import ModeratorCog
-from cogs.warning_cog import WarningsCommands
-from cogs.utils_cog import UtilsCog
+import os, sys
+
+import cogs.ext.utils.utils as utils
+import cogs.ext.utils.messages as messages
+
 
 """
 - ``0x<hex>``
@@ -31,6 +29,7 @@ from cogs.utils_cog import UtilsCog
 
 try:
     import discord
+    from discord.ext import commands
 except ImportError:
     if sys.platform.startswith('win'):
         os.system("python -m pip install discord.py")
@@ -38,14 +37,13 @@ except ImportError:
         os.system("python3 -m pip install discord.py")
     try:
         import discord
+        from discord.ext import commands
     except ImportError:
         print("Can't import discord.py! Try to install it.")
         exit()
 
-import discord
-from discord.ext import commands
 
-bot = commands.Bot(command_prefix=configManager.getBotPrefix(), intents=discord.Intents.all())
+bot = commands.Bot(command_prefix=utils.configManager.getBotPrefix(), intents=discord.Intents.all())
 
 
 def FindAll(directory: str, extension: str = ".py", exclusions: list = ["__init__.py"]) -> list:
@@ -76,11 +74,9 @@ def FindAll(directory: str, extension: str = ".py", exclusions: list = ["__init_
     for root, _, files in os.walk(directory):
         for file in files:
             file: str
-
             if not isinstance(file, str):
                 continue
-
-            if not file.endswith(extension) or file in exclusions:
+            if not file.endswith(extension) or file in exclusions or root in exclusions:
                 continue
 
             cog_locations.append(
@@ -90,42 +86,37 @@ def FindAll(directory: str, extension: str = ".py", exclusions: list = ["__init_
     return cog_locations
 
 
-leveling_cog = LevelingCog(bot)
-moderator_cog = ModeratorCog(bot)
-warning_cog = WarningsCommands(bot)
-util_cog = UtilsCog(bot)
-
 @bot.event
 async def on_ready():
-    for loc in FindAll("cogs"):
+    for loc in FindAll("cogs", exclusions=["__init__.py", "cogs\\ext", "cogs\\ext\\utils", "moderator_cog.py"]):
         await bot.load_extension(name=loc)
     print('Bot:', bot.user.name)
-    await handleMessageCtx(bot, None, "on_ready",
-                           placeholders={configManager.getUsernamePlaceholder(): bot.user.name,
-                                         configManager.getNumberPlaceholder(): bot.user.id})
+    await messages.handleMessageCtx(bot, None, "on_ready",
+                                    placeholders={utils.configManager.getUsernamePlaceholder(): bot.user.name,
+                                                  utils.configManager.getNumberPlaceholder(): bot.user.id})
 
 
 @bot.command()
 async def sync(ctx):
-    if await handleRestrictedCtx(bot, ctx, "sync"):
+    if await messages.handleRestrictedCtx(bot, ctx, "sync"):
         return
 
     synced = await bot.tree.sync()
-    await handleMessageCtx(bot, ctx, "sync",
-                           placeholders={configManager.getNumberPlaceholder(): str(len(synced))})
+    await messages.handleMessageCtx(bot, ctx, "sync",
+                                    placeholders={utils.configManager.getNumberPlaceholder(): str(len(synced))})
 
 
 @bot.command()
 async def reload(ctx: discord.ext.commands.context.Context):
-    if await handleRestrictedCtx(bot, ctx, "reload"):
+    if await messages.handleRestrictedCtx(bot, ctx, "reload"):
         return
 
-    configManager.reloadConfig()
-    await handleMessageCtx(bot, ctx, "reload")
+    utils.configManager.reloadConfig()
+    await messages.handleMessageCtx(bot, ctx, "reload")
 
 
 if __name__ == "__main__":
-    token = configManager.getBotToken()
+    token = utils.configManager.getBotToken()
     if token is None or len(token.replace(" ", "")) == 0:
         print("You need \"discord_bot_token\" in the config.json to be a valid token")
         exit()

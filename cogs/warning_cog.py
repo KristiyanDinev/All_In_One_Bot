@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from cogs.ext.utils import *
+from discord import app_commands
+from discord.ext import commands
+
+from cogs.ext.utils.utils import *
+import cogs.ext.utils.messages as messages
 
 
 async def setup(bot: commands.Bot):
@@ -17,12 +21,12 @@ class WarningsCommands(commands.Cog, name="Warnings"):
     @app_commands.describe(member=configManager.getCommandArgDescription("warn", configManager.getMentionMemberKey()),
                            reason=configManager.getCommandArgDescription("warn", configManager.getReasonKey()))
     async def warn(self, interaction: discord.Interaction, member: str, reason: str):
-        if await handleRestricted(self.bot, interaction, "warn"):
+        if await messages.handleRestricted(self.bot, interaction, "warn"):
             return
 
-        member = getMember(interaction, get_member_id_from_mention(member))
+        member = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
-            await handleInvalidMember(self.bot, interaction, "warn")
+            await messages.handleInvalidMember(self.bot, interaction, "warn")
             return
 
         nextLevel = getUserWarningLevel(member) + 1
@@ -33,62 +37,62 @@ class WarningsCommands(commands.Cog, name="Warnings"):
             for r in roles:
                 await member.add_roles(r, reason=reason)
 
-                await handleMessage(self.bot, interaction, "warn",
-                                    placeholders={configManager.getUsernamePlaceholder(): member.name,
-                                                  configManager.getReasonPlaceholder(): reason})
+                await messages.handleMessage(self.bot, interaction, "warn",
+                                             placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                                           configManager.getReasonPlaceholder(): reason})
 
             sendMessages: list | None = warningData.get("send_messages", None)
             if sendMessages is not None:
                 for msg in sendMessages:
-                    await handleMessage(self.bot, interaction, msg,
-                                        placeholders={configManager.getUsernamePlaceholder(): member.name,
-                                                      configManager.getReasonPlaceholder(): reason})
+                    await messages.handleMessage(self.bot, interaction, msg,
+                                                 placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                                               configManager.getReasonPlaceholder(): reason})
 
         except Exception as e:
-            await handleErrors(self.bot, interaction, "warn", e)
-
+            await messages.handleErrors(self.bot, interaction, "warn", e)
 
     @app_commands.command(description=configManager.getCommandArgDescription("warnings", "description"))
     @app_commands.describe(
         member=configManager.getCommandArgDescription("warnings", configManager.getMentionMemberKey()))
     async def warnings(self, interaction: discord.Interaction, member: str):
-        if await handleRestricted(self.bot, interaction, "warnings"):
+        if await messages.handleRestricted(self.bot, interaction, "warnings"):
             return
 
-        member = getMember(interaction, get_member_id_from_mention(member))
+        member = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
-            await handleInvalidMember(self.bot, interaction, "warnings")
+            await messages.handleInvalidMember(self.bot, interaction, "warnings")
             return
 
         roles = getRoleIdFromRoles(getWarningRolesFromLevel(interaction, getUserWarningLevel(member)))
         for role in member.roles:
             if role.id in roles:
                 try:
-                    await handleMessage(self.bot, interaction, "warnings",
-                                        placeholders={configManager.getRoleNamePlaceholder(): role.name,
-                                                      configManager.getUsernamePlaceholder(): member.name,
-                                                      configManager.getReasonPlaceholder(): configManager.warning_data[
-                                                          str(member.id)]})
+                    await messages.handleMessage(self.bot, interaction, "warnings",
+                                                 placeholders={configManager.getRoleNamePlaceholder(): role.name,
+                                                               configManager.getUsernamePlaceholder(): member.name,
+                                                               configManager.getReasonPlaceholder():
+                                                                   configManager.warning_data[
+                                                                       str(member.id)]})
                     return
 
                 except Exception as e:
-                    await handleErrors(self.bot, interaction, "warnings", e)
-
+                    await messages.handleErrors(self.bot, interaction, "warnings", e)
 
     @app_commands.command(description=configManager.getCommandArgDescription("clearwarnings", "description"))
-    @app_commands.describe(member=configManager.getCommandArgDescription("clearwarnings", configManager.getMentionMemberKey()),
-                           reason=configManager.getCommandArgDescription("clearwarnings", configManager.getReasonKey()))
+    @app_commands.describe(
+        member=configManager.getCommandArgDescription("clearwarnings", configManager.getMentionMemberKey()),
+        reason=configManager.getCommandArgDescription("clearwarnings", configManager.getReasonKey()))
     async def clearwarnings(self, interaction: discord.Interaction, member: str, reason: str = ""):
-        if await handleRestricted(self.bot, interaction, "clearwarnings"):
+        if await messages.handleRestricted(self.bot, interaction, "clearwarnings"):
             return
 
-        member = getMember(interaction, get_member_id_from_mention(member))
+        member = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
-            await handleInvalidMember(self.bot, interaction, "warnings")
+            await messages.handleInvalidMember(self.bot, interaction, "warnings")
             return
 
         allRoles = []
-        for level in range(1, configManager.getWarningLevels()+1):
+        for level in range(1, configManager.getWarningLevels() + 1):
             roleData = configManager.getWarningDataForLevel(level)
             if len(roleData) == 0:
                 continue
@@ -104,12 +108,12 @@ class WarningsCommands(commands.Cog, name="Warnings"):
             for role in allRoles:
                 await member.remove_roles(role, reason=reason)
 
-                await handleMessage(self.bot, interaction, "clearwarnings",
-                                    placeholders={configManager.getUsernamePlaceholder(): member.name,
-                                configManager.getReasonPlaceholder(): reason})
+                await messages.handleMessage(self.bot, interaction, "clearwarnings",
+                                             placeholders={configManager.getUsernamePlaceholder(): member.name,
+                                                           configManager.getReasonPlaceholder(): reason})
 
         except Exception as e:
-            await handleErrors(interaction, "clearwarnings", e)
+            await messages.handleErrors(interaction, "clearwarnings", e)
 
     @commands.Cog.listener()
     async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):

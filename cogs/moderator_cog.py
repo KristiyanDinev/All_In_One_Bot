@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import datetime
 
-import asyncio
 import discord.errors
-from cogs.ext.utils import *
+from cogs.ext.utils.utils import *
 
 
 async def setup(bot: commands.Bot):
@@ -26,7 +25,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if member == "":
             member: discord.Member = interaction.user
         else:
-            member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
+            member: discord.Member = getMember(interaction, getMemberIdFromMention(member))
 
         if member is None:
             await handleInvalidMember(interaction, "avatar")
@@ -72,12 +71,12 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "addrole"):
             return
 
-        member_obj: discord.Member = getMember(interaction, get_member_id_from_mention(member))
+        member_obj: discord.Member = getMember(interaction, getMemberIdFromMention(member))
         if member_obj is None:
             await handleInvalidMember(self.bot, interaction, "addrole")
             return
 
-        role_obj = getRole(interaction, get_role_id_from_mention(role))
+        role_obj = getRole(interaction, getRoleIdFromMention(role))
         if role_obj is None:
             await handleInvalidRole(self.bot, interaction, "addrole")
             return
@@ -100,12 +99,12 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "removerole"):
             return
 
-        member_obj: discord.Member = getMember(interaction, get_member_id_from_mention(member))
+        member_obj: discord.Member = getMember(interaction, getMemberIdFromMention(member))
         if member_obj is None:
             await handleInvalidMember(self.bot, interaction, "removerole")
             return
 
-        role_obj = getRole(interaction, get_role_id_from_mention(role))
+        role_obj = getRole(interaction, getRoleIdFromMention(role))
         if role_obj is None:
             await handleInvalidRole(self.bot, interaction, "removerole")
             return
@@ -129,7 +128,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "ban"):
             return
 
-        member = getMember(interaction, get_member_id_from_mention(member))
+        member = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
             await handleInvalidMember(self.bot, interaction, "ban")
             return
@@ -154,7 +153,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "unban"):
             return
 
-        member: discord.Member | None = getMember(interaction, get_member_id_from_mention(member))
+        member: discord.Member | None = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
             await handleInvalidMember(self.bot, interaction, "unban")
             return
@@ -226,7 +225,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "deafen"):
             return
 
-        member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
+        member: discord.Member = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
             await handleInvalidMember(self.bot, interaction, "deafen")
             return
@@ -248,7 +247,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "undeafen"):
             return
 
-        member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
+        member: discord.Member = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
             await handleInvalidMember(self.bot, interaction, "undeafen")
             return
@@ -269,7 +268,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "kick"):
             return
 
-        member = getMember(interaction, get_member_id_from_mention(member))
+        member = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
             await handleInvalidMember(self.bot, interaction, "kick")
             return
@@ -293,12 +292,12 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "move"):
             return
 
-        channel = getVoiceChannel(interaction, get_channel_id_from_mention(channel_mention))
+        channel = getVoiceChannel(interaction, getChannelIdFromMention(channel_mention))
         if channel is None:
             await handleInvalidChannels(self.bot, interaction, "move")
             return
 
-        member = getMember(interaction, get_member_id_from_mention(member_mention))
+        member = getMember(interaction, getMemberIdFromMention(member_mention))
         if member is None:
             await handleInvalidMember(self.bot, interaction, "move")
             return
@@ -349,7 +348,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "timeout"):
             return
 
-        member = getMember(interaction, get_member_id_from_mention(member))
+        member = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
             await handleInvalidMember(self.bot, interaction, "timeout")
             return
@@ -371,7 +370,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "removetimeout"):
             return
 
-        member = getMember(interaction, get_member_id_from_mention(member))
+        member = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
             await handleInvalidMember(self.bot, interaction, "removetimeout")
             return
@@ -411,7 +410,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "vmute"):
             return
 
-        member = getMember(interaction, get_member_id_from_mention(member))
+        member = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
             await handleInvalidMember(self.bot, interaction, "vmute")
             return
@@ -431,7 +430,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "vunmute"):
             return
 
-        member = getMember(interaction, get_member_id_from_mention(member))
+        member = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
             await handleInvalidMember(self.bot, interaction, "vunmute")
             return
@@ -449,7 +448,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if await handleRestricted(self.bot, interaction, "vkick"):
             return
 
-        member = getMember(interaction, get_member_id_from_mention(member))
+        member = getMember(interaction, getMemberIdFromMention(member))
         if member is None:
             await handleInvalidMember(self.bot, interaction, "vkick")
             return
@@ -476,7 +475,7 @@ class ModeratorCog(commands.Cog, name="Moderator"):
         if member == "":
             member: discord.Member = interaction.user
         else:
-            member: discord.Member = getMember(interaction, get_member_id_from_mention(member))
+            member: discord.Member = getMember(interaction, getMemberIdFromMention(member))
 
         if member is None:
             await handleInvalidMember(self.bot, interaction, "dm")

@@ -6,7 +6,6 @@
     ],
     "cog_data": {
         "Leveling": "leveling_cog",
-        "Moderator": "moderator_cog",
         "Warnings": "warning_cog",
         "Utils": "utils_cog"
     },
@@ -60,19 +59,29 @@
     },
     "actions": {
         "idk": {
-            "messages": [],
-            "commands": {},
-            "user": {
-                "deafen": {
-                    "duration": 5,
-                    "undeafen_reason": "test",
-                    "deafen_reason": "test"
-                },
-                "mute": {
-                    "duration": -1,
-                    "unmute_reason": "test",
-                    "mute_reason": "test"
-                }
+            "guild": {
+                "role_create": [
+                    {
+                        "permissions": {},
+                        "users": [],
+                        "name": "",
+                        "color": "",
+                        "placement": 2,
+                        "hoist": true,
+                        "display_icon": ":)",
+                        "mentionable": true
+                    }],
+                "role_delete": [{"id": 1, "reason":  ""}],
+                "role_edit": [
+                    {
+                        "id": 1,
+                        "name": "ss",
+                        "permissions": {},
+                        "users": [],
+                        "color": "!",
+                        "placement": 2
+                    }
+                ]
             }
         }
     },
