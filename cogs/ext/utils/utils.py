@@ -184,6 +184,7 @@ def isUserRestrictedCtx(ctx: discord.ext.commands.context.Context, commandName: 
 def separateThread(loop, func, *args):
     asyncio.run_coroutine_threadsafe(func(*args), loop)
 
+
 async def giveRoleToUser(user: discord.User, role: discord.Role, reason: str = "") -> bool:
     try:
         await user.add_roles(role, reason=reason)
@@ -199,19 +200,20 @@ async def removeRoleToUser(user: discord.User, role: discord.Role, reason: str =
     except Exception:
         return False
 
+
 async def createRoleWithDisplayIcon(roleData: dict, guild: discord.Guild) -> discord.Role | None:
     try:
         color: str = roleData.get("color", "")
         role: discord.Role = await guild.create_role(reason=roleData.get("reason", ""),
-                                                                 name=roleData.get("name", "No Name Given"),
-                                                                 display_icon=roleData.get("display_icon"),
-                                                                 color=discord.Colour.random()
-                                                                 if color == "random" or len(
-                                                                     color) == 0 else discord.Color.from_str(color),
-                                                                 mentionable=bool(roleData.get("mentionable", True)),
-                                                                 hoist=bool(roleData.get("hoist", True)),
-                                                                 permissions=discord.Permissions(
-                                                                     **dict(roleData.get("permissions", {}))))
+                                                     name=roleData.get("name", "No Name Given"),
+                                                     display_icon=roleData.get("display_icon"),
+                                                     color=discord.Colour.random()
+                                                     if color == "random" or len(
+                                                         color) == 0 else discord.Color.from_str(color),
+                                                     mentionable=bool(roleData.get("mentionable", True)),
+                                                     hoist=bool(roleData.get("hoist", True)),
+                                                     permissions=discord.Permissions(
+                                                         **dict(roleData.get("permissions", {}))))
         pos: str = str(roleData.get("position", ""))
         if pos.isdigit():
             await role.edit(position=int(pos))
@@ -225,17 +227,19 @@ async def createRoleWithDisplayIcon(roleData: dict, guild: discord.Guild) -> dis
     except Exception:
         return None
 
+
 async def createRoleNoDisplayIcon(roleData: dict, guild: discord.Guild) -> discord.Role | None:
     try:
         color: str = roleData.get("color", "")
         role: discord.Role = await guild.create_role(reason=roleData.get("reason", ""),
-                                        name=roleData.get("name", "No Name Given"),
-                                        color=discord.Colour.random()
-                                        if color == "random" or len(color) == 0 else
-                                        discord.Color.from_str(color),
-                                        mentionable=bool(roleData.get("mentionable", True)),
-                                        hoist=bool(roleData.get("hoist", True)),
-                                        permissions=discord.Permissions(**dict(roleData.get("permissions", {}))))
+                                                     name=roleData.get("name", "No Name Given"),
+                                                     color=discord.Colour.random()
+                                                     if color == "random" or len(color) == 0 else
+                                                     discord.Color.from_str(color),
+                                                     mentionable=bool(roleData.get("mentionable", True)),
+                                                     hoist=bool(roleData.get("hoist", True)),
+                                                     permissions=discord.Permissions(
+                                                         **dict(roleData.get("permissions", {}))))
         pos: str = str(roleData.get("position", ""))
         if pos.isdigit():
             await role.edit(position=int(pos))
@@ -283,6 +287,77 @@ async def deleteRole(roleData: dict, guild: discord.Guild) -> List[discord.Role]
     return deleted
 
 
+async def banUser(member: discord.Member, reason: str = "") -> bool:
+    try:
+        await member.ban(reason=reason)
+        return True
+    except Exception:
+        return False
+
+
+async def unbanUser(member: discord.Member, reason: str = "") -> bool:
+    try:
+        await member.unban(reason=reason)
+        return True
+    except Exception:
+        return False
+
+
+async def kickUser(member: discord.Member, reason: str = "") -> bool:
+    try:
+        await member.kick(reason=reason)
+        return True
+    except Exception:
+        return False
+
+
+async def addRole(member: discord.Member, role: discord.Role, reason: str = "") -> bool:
+    try:
+        await member.add_roles(role, reason=reason)
+    except Exception:
+        return False
+
+
+async def removeRole(member: discord.Member, role: discord.Role, reason: str = "") -> bool:
+    try:
+        await member.remove_roles(role, reason=reason)
+        return True
+    except Exception:
+        return False
+
+
+async def timeoutUser(member: discord.Member, datetime_zone, reason: str = "") -> bool:
+    try:
+        await member.timeout(datetime_zone, reason=reason)
+        return True
+    except Exception:
+        return False
+
+
+async def removeTimeoutUser(member: discord.Member, reason: str = "") -> bool:
+    try:
+        await member.edit(timed_out_until=None, reason=reason)
+        return True
+    except Exception:
+        return False
+
+
+async def userDeafen(member: discord.Member, status: bool, reason: str = "") -> bool:
+    try:
+        await member.edit(deafen=status, reason=reason)
+        return True
+    except Exception:
+        return False
+
+
+async def userMute(member: discord.Member, status: bool, reason: str = "") -> bool:
+    try:
+        await member.edit(mute=status, reason=reason)
+        return True
+    except Exception:
+        return False
+
+
 def getRoleData(role: discord.Role) -> dict:
     print(role.color)
     roleData = dict()
@@ -301,3 +376,10 @@ def getRoleData(role: discord.Role) -> dict:
     print(roleData["permissions"])
     return roleData
 
+
+async def deleteRole(role: discord.Role, reason: str = "") -> bool:
+    try:
+        await role.delete(reason=reason)
+        return True
+    except Exception:
+        return False

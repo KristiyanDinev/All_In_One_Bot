@@ -101,197 +101,174 @@ async def handleUser(interaction: discord.Interaction, userData: dict):
         duration: int = int(userDoData.get("duration", -1))
         loop = asyncio.get_running_loop()
         if userDo == "ban":
-            try:
-                await interaction.user.ban(reason=str(userDoData.get("ban_reason", "")))
+            res: bool = await utils.banUser(interaction.user, str(userDoData.get("reason", "")))
+            if not res:
+                continue
+            if duration > 0:
+                async def wait(duration2: int, reason: str, user: discord.Member):
+                    try:
+                        await asyncio.sleep(duration2)
+                        await utils.unbanUser(user, reason=reason)
+                    except Exception:
+                        pass
 
-                if duration > 0:
-                    async def wait(duration2: int, reason: str, user: discord.Member):
-                        try:
-                            await asyncio.sleep(duration2)
-                            await user.unban(reason=reason)
-                        except Exception:
-                            pass
-
-                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                        str(userDoData.get("unban_reason", "")),
-                                                                        interaction.user), daemon=True).start()
-            except Exception as e:
-                await messages.handleErrors(interaction.client, interaction, userDo, e)
-
+                threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
+                                                                    str(userDoData.get("unban_reason", "")),
+                                                                    interaction.user), daemon=True).start()
         elif userDo == "unban":
-            try:
-                member: discord.Member | None = utils.getMember(interaction,
-                                                                utils.getMemberIdFromMention(
-                                                                    str(userDoData.get("id", "0"))))
-                if member is not None:
-                    await member.unban(reason=str(userDoData.get("unban_reason", "")))
-                    duration: int = int(userDoData.get("duration", -1))
+            member: discord.Member | None = utils.getMember(interaction,
+                                                            utils.getMemberIdFromMention(
+                                                                str(userDoData.get("id", "0"))))
+            if member is not None:
+                res: bool = await utils.unbanUser(member, str(userDoData.get("reason", "")))
+                if not res:
+                    continue
+                duration: int = int(userDoData.get("duration", -1))
+                if duration > 0:
+                    async def wait(duration2: int, member2: discord.Member, reason: str):
+                        try:
+                            await asyncio.sleep(duration2)
+                            await utils.banUser(member2, reason)
+                        except Exception:
+                            pass
 
-                    if duration > 0:
-                        async def wait(duration2: int, member2: discord.Member):
-                            try:
-                                await asyncio.sleep(duration2)
-                                await member2.ban(reason=str(userDoData.get("ban_reason", "")))
-                            except Exception:
-                                pass
-
-                        threading.Thread(target=utils.separateThread, args=(loop, wait, duration, member),
-                                         daemon=True).start()
-
-            except Exception as e:
-                await messages.handleErrors(interaction.client, interaction, userDo, e)
-
+                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, member,
+                                                                        str(userDoData.get("ban_reason", ""))),
+                                     daemon=True).start()
         elif userDo == "kick":
-            try:
-                await interaction.user.kick(reason=str(userDoData.get("kick_reason", "")))
-            except Exception as e:
-                await messages.handleErrors(interaction.client, interaction, userDo, e)
-
+            await utils.kickUser(interaction.user, reason=str(userDoData.get("kick_reason", "")))
         elif userDo == "role_add":
-            try:
-                role: discord.Role | None = utils.getRole(interaction,
-                                                          utils.getRoleIdFromMention(
-                                                              str(userDoData.get("id", 0))))
-                if role is not None:
-                    await interaction.user.add_roles(role, reason=str(userDoData.get("reason", "")))
-
-                    if duration > 0:
-                        async def wait(duration2: int, reason: str, user: discord.Member, userRole: discord.Role):
-                            try:
-                                await asyncio.sleep(duration2)
-                                await user.remove_roles(userRole, reason=reason)
-                            except Exception:
-                                pass
-
-                        threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                            str(userDoData.get("role_remove_reason",
-                                                                                               "")),
-                                                                            interaction.user, role),
-                                         daemon=True).start()
-            except Exception as e:
-                await messages.handleErrors(interaction.client, interaction, userDo, e)
-
-        elif userDo == "role_remove":
-            try:
-                role: discord.Role | None = utils.getRole(interaction,
-                                                          utils.getRoleIdFromMention(
-                                                              str(userDoData.get("id", 0))))
-                if role is not None:
-                    await interaction.user.remove_roles(role, reason=str(userDoData.get("reason", "")))
-
-                    if duration > 0:
-                        async def wait(duration2: int, reason: str, user: discord.Member, userRole: discord.Role):
-                            try:
-                                await asyncio.sleep(duration2)
-                                await user.add_roles(userRole, reason=reason)
-                            except Exception:
-                                pass
-
-                        threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                            str(userDoData.get("role_add_reason",
-                                                                                               "")),
-                                                                            interaction.user, role),
-                                         daemon=True).start()
-            except Exception as e:
-                await messages.handleErrors(interaction.client, interaction, userDo, e)
-
-        elif userDo == "timeout":
-            try:
-                await interaction.user.timeout(datetime.strptime(str(userDoData.get("reason", "")),
-                                                                 "YYYY-MM-DDTHH:MM:SS"),
-                                               reason=str(userDoData.get("timeout_reason", "")))
-                duration: int = int(userDoData.get("duration", -1))
-
+            role: discord.Role | None = utils.getRole(interaction,
+                                                      utils.getRoleIdFromMention(
+                                                          str(userDoData.get("id", 0))))
+            if role is not None:
+                res: bool = await utils.addRole(interaction.user, role, reason=str(userDoData.get("reason", "")))
+                if not res:
+                    continue
                 if duration > 0:
-                    async def wait(duration2: int, reason: str, user: discord.Member):
+                    async def wait(duration2: int, reason: str, user: discord.Member, userRole: discord.Role):
                         try:
                             await asyncio.sleep(duration2)
-                            await user.edit(timed_out_until=None, reason=reason)
+                            await utils.removeRole(user, userRole, reason=reason)
                         except Exception:
                             pass
 
                     threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                        str(userDoData.get("untimeout_unban_reason",
+                                                                        str(userDoData.get("role_remove_reason",
                                                                                            "")),
-                                                                        interaction.user), daemon=True).start()
-            except Exception as e:
-                await messages.handleErrors(interaction.client, interaction, userDo, e)
+                                                                        interaction.user, role),
+                                     daemon=True).start()
+        elif userDo == "role_remove":
+            role: discord.Role | None = utils.getRole(interaction,
+                                                      utils.getRoleIdFromMention(
+                                                          str(userDoData.get("id", 0))))
+            if role is not None:
+                res: bool = await utils.removeRole(interaction.user, role, reason=str(userDoData.get("reason", "")))
+                if not res:
+                    continue
+                if duration > 0:
+                    async def wait(duration2: int, reason: str, user: discord.Member, userRole: discord.Role):
+                        try:
+                            await asyncio.sleep(duration2)
+                            await utils.addRole(user, userRole, reason=reason)
+                        except Exception:
+                            pass
 
+                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
+                                                                        str(userDoData.get("role_add_reason",
+                                                                                           "")),
+                                                                        interaction.user, role),
+                                     daemon=True).start()
+        elif userDo == "timeout":
+            res: bool = await utils.timeoutUser(interaction.user, datetime.strptime(str(userDoData
+                                                                                        .get("reason", "")),
+                                                                                    "YYYY-MM-DDTHH:MM:SS"),
+                                                reason=str(userDoData.get("reason", "")))
+            if not res:
+                continue
+            duration: int = int(userDoData.get("duration", -1))
+            if duration > 0:
+                async def wait(duration2: int, reason: str, user: discord.Member):
+                    try:
+                        await asyncio.sleep(duration2)
+                        await utils.removeTimeoutUser(user, reason=reason)
+                    except Exception:
+                        pass
+
+                threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
+                                                                    str(userDoData.get("timeout_remove_reason",
+                                                                                       "")),
+                                                                    interaction.user), daemon=True).start()
         elif userDo == "deafen":
-            try:
-                await interaction.user.edit(deafen=True, reason=str(userDoData.get("deafen_reason", "")))
-                duration: int = int(userDoData.get("duration", -1))
+            res: bool = await utils.userDeafen(interaction.user, True,
+                                               reason=str(userDoData.get("reason", "")))
+            if not res:
+                continue
 
-                if duration > 0:
-                    async def wait(duration2: int, reason: str, user: discord.Member):
-                        try:
-                            await asyncio.sleep(duration2)
-                            await user.edit(deafen=False, reason=reason)
-                        except Exception:
-                            pass
+            duration: int = int(userDoData.get("duration", -1))
+            if duration > 0:
+                async def wait(duration2: int, reason: str, user: discord.Member):
+                    try:
+                        await asyncio.sleep(duration2)
+                        await utils.userDeafen(user, False, reason=reason)
+                    except Exception:
+                        pass
 
-                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                        str(userDoData.get("undeafen_reason", "")),
-                                                                        interaction.user), daemon=True).start()
-            except Exception as e:
-                await messages.handleErrors(interaction.client, interaction, userDo, e)
+                threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
+                                                                    str(userDoData.get("deafen_remove_reason", "")),
+                                                                    interaction.user), daemon=True).start()
+        elif userDo == "deafen_remove":
+            res: bool = await utils.userDeafen(interaction.user, False,
+                                               reason=str(userDoData.get("reason", "")))
+            if not res:
+                continue
+            duration: int = int(userDoData.get("duration", -1))
+            if duration > 0:
+                async def wait(duration2: int, reason: str, user: discord.Member):
+                    try:
+                        await asyncio.sleep(duration2)
+                        await utils.userDeafen(user, True, reason=reason)
+                        await user.edit(deafen=True, reason=reason)
+                    except Exception:
+                        pass
 
-        elif userDo == "undeafen":
-            try:
-                await interaction.user.edit(deafen=False, reason=str(userDoData.get("deafen_reason", "")))
-                duration: int = int(userDoData.get("duration", -1))
-
-                if duration > 0:
-                    async def wait(duration2: int, reason: str, user: discord.Member):
-                        try:
-                            await asyncio.sleep(duration2)
-                            await user.edit(deafen=True, reason=reason)
-                        except Exception:
-                            pass
-
-                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                        str(userDoData.get("undeafen_reason", "")),
-                                                                        interaction.user), daemon=True).start()
-            except Exception as e:
-                await messages.handleErrors(interaction.client, interaction, userDo, e)
-
+                threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
+                                                                    str(userDoData.get("deafen_reason", "")),
+                                                                    interaction.user), daemon=True).start()
         elif userDo == "mute":
-            try:
-                await interaction.user.edit(mute=True, reason=str(userDoData.get("mute_reason", "")))
+                res: bool = await utils.userMute(interaction.user, True,
+                                                 reason=str(userDoData.get("reason", "")))
+                if not res:
+                    continue
                 duration: int = int(userDoData.get("duration", -1))
-
                 if duration > 0:
                     async def wait(duration2: int, reason: str, user: discord.Member):
                         try:
                             await asyncio.sleep(duration2)
-                            await user.edit(mute=False, reason=reason)
+                            await utils.userMute(user, False, reason=reason)
                         except Exception:
                             pass
 
                     threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                        str(userDoData.get("unmute_reason", "")),
+                                                                        str(userDoData.get("mute_remove_reason", "")),
                                                                         interaction.user), daemon=True).start()
-            except Exception as e:
-                await messages.handleErrors(interaction.client, interaction, userDo, e)
-
-        elif userDo == "unmute":
-            try:
-                await interaction.user.edit(mute=False, reason=str(userDoData.get("mute_reason", "")))
+        elif userDo == "mute_remove":
+                res: bool = await utils.userMute(interaction.user, False,
+                                                 reason=str(userDoData.get("reason", "")))
+                if not res:
+                    continue
                 duration: int = int(userDoData.get("duration", -1))
-
                 if duration > 0:
                     async def wait(duration2: int, reason: str, user: discord.Member):
                         try:
                             await asyncio.sleep(duration2)
-                            await user.edit(mute=True, reason=reason)
+                            await utils.userMute(user, True, reason=reason)
                         except Exception:
                             pass
 
                     threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                        str(userDoData.get("unmute_reason", "")),
+                                                                        str(userDoData.get("mute_reason", "")),
                                                                         interaction.user), daemon=True).start()
-            except Exception as e:
-                await messages.handleErrors(interaction.client, interaction, userDo, e)
 
 
 async def handleGuild(interaction: discord.Interaction, guildData: dict):
@@ -311,7 +288,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                     async def wait(duration2: int, roleToDelete: discord.Role, reason: str):
                         try:
                             await asyncio.sleep(duration2)
-                            await roleToDelete.delete(reason=reason)
+                            await utils.deleteRole(roleToDelete, reason=reason)
                         except Exception:
                             pass
 
@@ -348,7 +325,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                                                                         roles,
                                                                         str(rolesToDelete.get("create_reason", "")),
                                                                         bool(rolesToDelete.get(
-                                                                            "give_back_roles_to_users", ""))),
+                                                                            "give_back_roles_to_users", False))),
                                      daemon=True).start()
 
 
