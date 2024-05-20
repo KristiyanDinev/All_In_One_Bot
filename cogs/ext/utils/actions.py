@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from datetime import datetime
+from typing import List
 
 import discord
 from discord import Member
@@ -164,7 +165,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict):
 
                         threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
                                                                             str(userDoData.get("role_remove_reason",
-                                                                                                "")),
+                                                                                               "")),
                                                                             interaction.user, role),
                                          daemon=True).start()
             except Exception as e:
@@ -188,7 +189,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict):
 
                         threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
                                                                             str(userDoData.get("role_add_reason",
-                                                                                                "")),
+                                                                                               "")),
                                                                             interaction.user, role),
                                          daemon=True).start()
             except Exception as e:
@@ -211,7 +212,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict):
 
                     threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
                                                                         str(userDoData.get("untimeout_unban_reason",
-                                                                                            "")),
+                                                                                           "")),
                                                                         interaction.user), daemon=True).start()
             except Exception as e:
                 await messages.handleErrors(interaction.client, interaction, userDo, e)
@@ -292,38 +293,60 @@ async def handleUser(interaction: discord.Interaction, userData: dict):
             except Exception as e:
                 await messages.handleErrors(interaction.client, interaction, userDo, e)
 
+
 async def handleGuild(interaction: discord.Interaction, guildData: dict):
-    for roleDo in guildData.keys():
-        guildDoData: dict = dict(guildData.get(roleDo, {}))
-        duration: int = int(guildDoData.get("duration", -1))
+    for guildToDo in guildData.keys():
         loop = asyncio.get_running_loop()
         # TODO finish this
-        if roleDo == "role_create":
-            try:
-                color: str = guildDoData.get("color", "")
-                role: discord.Role = await interaction.guild.create_role(reason=guildDoData.get("reason", ""),
-                                                    name=guildDoData.get("name", "No Name Given"),
-                                                    display_icon=guildDoData.get("display_icon", "No Name Given"),
-                                                    color=discord.Colour.random()
-                                                    if color == "random" or len(color) == 0 else
-                                                    discord.Color.from_str(color),
-                                                    mentionable=bool(guildDoData.get("mentionable", True)),
-                                                    hoist=bool(guildDoData.get("hoist", True)),
-                                                    permissions=discord.Permissions(**
-                                                        dict(guildDoData.get("permissions", {}))))
+        if guildToDo == "role_create":
+            for rolesToCreate in list(guildData.get(guildToDo, [])):
+                duration: int = int(rolesToCreate.get("duration", -1))
+                role = await utils.createRoleWithDisplayIcon(rolesToCreate, interaction.guild)
+                if role is None:
+                    role = await utils.createRoleNoDisplayIcon(rolesToCreate, interaction.guild)
+                    if role is None:
+                        continue
 
                 if duration > 0:
-                    async def wait(duration2: int, bot: commands.Bot, roleToDelete: discord.Role):
+                    async def wait(duration2: int, roleToDelete: discord.Role, reason: str):
                         try:
                             await asyncio.sleep(duration2)
-                            await bot.delete_role(roleToDelete.guild, roleToDelete)
+                            await roleToDelete.delete(reason=reason)
                         except Exception:
                             pass
 
-                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                        interaction.client, role), daemon=True).start()
-            except Exception as e:
-                await messages.handleErrors(interaction.client, interaction, roleDo, e)
+                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, role,
+                                                                        rolesToCreate.get("delete_reason", "")),
+                                     daemon=True).start()
+        elif guildToDo == "role_delete":
+            for rolesToCreate in list(guildData.get(guildToDo, [])):
+                duration: int = int(rolesToCreate.get("duration", -1))
+                roles: list = await utils.deleteRole(rolesToCreate, interaction.guild)
+                if len(roles) == 0:
+                    continue
+
+                if duration > 0:
+                    async def wait(duration2: int, guild: discord.Guild, rolesToCreate: List[discord.Role], reason: str):
+                        try:
+                            await asyncio.sleep(duration2)
+                            for role in rolesToCreate:
+                                roleData: dict = utils.getRoleData(role)
+                                roleData["reason"] = reason
+                                roleCreated = await utils.createRoleWithDisplayIcon(roleData, guild)
+                                if roleCreated is None:
+                                    roleCreated = await utils.createRoleNoDisplayIcon(roleData, guild)
+                                    if roleCreated is None:
+                                        continue
+
+                        except Exception:
+                            pass
+
+                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, interaction.guild,
+                                                                        roles,
+                                                                        str(rolesToCreate.get("create_reason", ""))),
+                                     daemon=True).start()
+
+
 
 
 async def handleAllActions(actionData: dict, interaction: discord.Interaction):

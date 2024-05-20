@@ -184,4 +184,116 @@ def isUserRestrictedCtx(ctx: discord.ext.commands.context.Context, commandName: 
 def separateThread(loop, func, *args):
     asyncio.run_coroutine_threadsafe(func(*args), loop)
 
+async def giveRoleToUser(user: discord.User, role: discord.Role, reason: str = "") -> bool:
+    try:
+        await user.add_roles(role, reason=reason)
+        return True
+    except Exception:
+        return False
+
+
+async def removeRoleToUser(user: discord.User, role: discord.Role, reason: str = "") -> bool:
+    try:
+        await user.remove_roles(role, reason=reason)
+        return True
+    except Exception:
+        return False
+
+async def createRoleWithDisplayIcon(roleData: dict, guild: discord.Guild) -> discord.Role | None:
+    try:
+        color: str = roleData.get("color", "")
+        role: discord.Role = await guild.create_role(reason=roleData.get("reason", ""),
+                                                                 name=roleData.get("name", "No Name Given"),
+                                                                 display_icon=roleData.get("display_icon"),
+                                                                 color=discord.Colour.random()
+                                                                 if color == "random" or len(
+                                                                     color) == 0 else discord.Color.from_str(color),
+                                                                 mentionable=bool(roleData.get("mentionable", True)),
+                                                                 hoist=bool(roleData.get("hoist", True)),
+                                                                 permissions=discord.Permissions(
+                                                                     **dict(roleData.get("permissions", {}))))
+        pos: str = str(roleData.get("position", ""))
+        if pos.isdigit():
+            await role.edit(position=int(pos))
+
+        for usersId in list(roleData.get("users", [])):
+            if not str(usersId).isdigit():
+                continue
+            member: discord.Member | None = guild.get_member(int(usersId))
+            if member is not None:
+                await giveRoleToUser(member, role, str(roleData.get("give_reason", "")))
+    except Exception:
+        return None
+
+async def createRoleNoDisplayIcon(roleData: dict, guild: discord.Guild) -> discord.Role | None:
+    try:
+        color: str = roleData.get("color", "")
+        role: discord.Role = await guild.create_role(reason=roleData.get("reason", ""),
+                                        name=roleData.get("name", "No Name Given"),
+                                        color=discord.Colour.random()
+                                        if color == "random" or len(color) == 0 else
+                                        discord.Color.from_str(color),
+                                        mentionable=bool(roleData.get("mentionable", True)),
+                                        hoist=bool(roleData.get("hoist", True)),
+                                        permissions=discord.Permissions(**dict(roleData.get("permissions", {}))))
+        pos: str = str(roleData.get("position", ""))
+        if pos.isdigit():
+            await role.edit(position=int(pos))
+
+        for usersId in list(roleData.get("users", [])):
+            if not str(usersId).isdigit():
+                continue
+            member: discord.Member | None = guild.get_member(int(usersId))
+            if member is not None:
+                await giveRoleToUser(member, role, str(roleData.get("give_reason", "")))
+        return role
+    except Exception:
+        return None
+
+
+async def deleteRole(roleData: dict, guild: discord.Guild) -> List[discord.Role] | None:
+    roleId: str = str(roleData.get("id", ""))
+    roleName: str = str(roleData.get("name", ""))
+    roles = []
+    if roleId.isdigit():
+        # search by id
+        roles.append(guild.get_role(int(roleId)))
+
+    if len(roleName.replace(" ", "")) > 0:
+        # search by name
+        if roleName == "*":
+            for r in guild.role:
+                if r.name != "@everyone":
+                    roles.append(r)
+        else:
+            roles.append(discord.utils.get(guild.roles, name=roleName))
+
+    deleted = []
+    reason = str(roleData.get("reason", ""))
+    for r in roles:
+        try:
+            await r.delete(reason=reason)
+            deleted.append(r)
+        except Exception:
+            continue
+    return deleted
+
+
+def getRoleData(role: discord.Role) -> dict:
+    print(role.color)
+    roleData = dict()
+    roleData["name"] = role.name
+    roleData["color"] = role.color
+    roleData["display_icon"] = role.display_icon
+    roleData["mentionable"] = role.mentionable
+    roleData["hoist"] = role.hoist
+    roleData["position"] = role.position
+    roleData["permissions"] = {perm: getattr(role.permissions, perm)
+                               for perm, value in discord.Permissions.VALID_FLAGS.items()}
+    users = []
+    for member in role.members:
+        users.append(member.id)
+    roleData["users"] = users
+    print(roleData["permissions"])
+    return roleData
 

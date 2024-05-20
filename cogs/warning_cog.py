@@ -35,6 +35,7 @@ class WarningsCommands(commands.Cog, name="Warnings"):
 
         try:
             for r in roles:
+                await giveRoleToUser(member, r, reason=reason)
                 await member.add_roles(r, reason=reason)
 
                 await messages.handleMessage(self.bot, interaction, "warn",
@@ -106,7 +107,7 @@ class WarningsCommands(commands.Cog, name="Warnings"):
 
         try:
             for role in allRoles:
-                await member.remove_roles(role, reason=reason)
+                await removeRoleToUser(member, role, reason=reason)
 
                 await messages.handleMessage(self.bot, interaction, "clearwarnings",
                                              placeholders={configManager.getUsernamePlaceholder(): member.name,
