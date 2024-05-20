@@ -254,19 +254,23 @@ async def createRoleNoDisplayIcon(roleData: dict, guild: discord.Guild) -> disco
 async def deleteRole(roleData: dict, guild: discord.Guild) -> List[discord.Role] | None:
     roleId: str = str(roleData.get("id", ""))
     roleName: str = str(roleData.get("name", ""))
-    roles = []
+    roles = set()
     if roleId.isdigit():
         # search by id
-        roles.append(guild.get_role(int(roleId)))
+        roles.add(guild.get_role(int(roleId)))
 
     if len(roleName.replace(" ", "")) > 0:
+        if roleName == "@everyone":
+            return None
         # search by name
         if roleName == "*":
-            for r in guild.role:
+            for r in guild.roles:
                 if r.name != "@everyone":
-                    roles.append(r)
+                    roles.add(r)
         else:
-            roles.append(discord.utils.get(guild.roles, name=roleName))
+            for r in guild.roles:
+                if r.name != "@everyone" and r.name == roleName:
+                    roles.add(r)
 
     deleted = []
     reason = str(roleData.get("reason", ""))

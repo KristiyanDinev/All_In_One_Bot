@@ -319,19 +319,22 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                                                                         rolesToCreate.get("delete_reason", "")),
                                      daemon=True).start()
         elif guildToDo == "role_delete":
-            for rolesToCreate in list(guildData.get(guildToDo, [])):
-                duration: int = int(rolesToCreate.get("duration", -1))
-                roles: list = await utils.deleteRole(rolesToCreate, interaction.guild)
+            for rolesToDelete in list(guildData.get(guildToDo, [])):
+                duration: int = int(rolesToDelete.get("duration", -1))
+                roles: list = await utils.deleteRole(rolesToDelete, interaction.guild)
                 if len(roles) == 0:
                     continue
 
                 if duration > 0:
-                    async def wait(duration2: int, guild: discord.Guild, rolesToCreate: List[discord.Role], reason: str):
+                    async def wait(duration2: int, guild: discord.Guild, rolesToCreate2: List[discord.Role],
+                                   reason: str, give_back_roles_to_users: bool):
                         try:
                             await asyncio.sleep(duration2)
-                            for role in rolesToCreate:
-                                roleData: dict = utils.getRoleData(role)
+                            for roleToCreate in rolesToCreate2:
+                                roleData: dict = utils.getRoleData(roleToCreate)
                                 roleData["reason"] = reason
+                                if not give_back_roles_to_users:
+                                    roleData.pop("users")
                                 roleCreated = await utils.createRoleWithDisplayIcon(roleData, guild)
                                 if roleCreated is None:
                                     roleCreated = await utils.createRoleNoDisplayIcon(roleData, guild)
@@ -343,10 +346,10 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
 
                     threading.Thread(target=utils.separateThread, args=(loop, wait, duration, interaction.guild,
                                                                         roles,
-                                                                        str(rolesToCreate.get("create_reason", ""))),
+                                                                        str(rolesToDelete.get("create_reason", "")),
+                                                                        bool(rolesToDelete.get(
+                                                                            "give_back_roles_to_users", ""))),
                                      daemon=True).start()
-
-
 
 
 async def handleAllActions(actionData: dict, interaction: discord.Interaction):
