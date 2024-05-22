@@ -20,6 +20,12 @@ def getMember(interaction: discord.Interaction, memberId: int) -> Member | None:
     return interaction.client.get_user(memberId)
 
 
+def getMemberGuild(guild: discord.Guild, memberId: int) -> Member | None:
+    if memberId == 0:
+        return None
+    return guild.get_member(memberId)
+
+
 def getRoleIdFromMention(roleMention: str) -> int:
     try:
         return int(roleMention.replace("<@&", "")[:-1]) if "<@" in roleMention else int(roleMention)
@@ -203,17 +209,14 @@ async def removeRoleToUser(user: discord.User, role: discord.Role, reason: str =
 
 async def createRoleWithDisplayIcon(roleData: dict, guild: discord.Guild) -> discord.Role | None:
     try:
-        color: str = roleData.get("color", "")
         role: discord.Role = await guild.create_role(reason=roleData.get("reason", ""),
                                                      name=roleData.get("name", "No Name Given"),
                                                      display_icon=roleData.get("display_icon"),
-                                                     color=discord.Colour.random()
-                                                     if color == "random" or len(
-                                                         color) == 0 else discord.Color.from_str(color),
+                                                     color=getColor(str(roleData.get("color", ""))),
                                                      mentionable=bool(roleData.get("mentionable", True)),
                                                      hoist=bool(roleData.get("hoist", True)),
-                                                     permissions=discord.Permissions(
-                                                         **dict(roleData.get("permissions", {}))))
+                                                     permissions=getDiscordPermission(
+                                                         dict(roleData.get("permissions", {}))))
         pos: str = str(roleData.get("position", ""))
         if pos.isdigit():
             await role.edit(position=int(pos))
@@ -230,16 +233,13 @@ async def createRoleWithDisplayIcon(roleData: dict, guild: discord.Guild) -> dis
 
 async def createRoleNoDisplayIcon(roleData: dict, guild: discord.Guild) -> discord.Role | None:
     try:
-        color: str = roleData.get("color", "")
         role: discord.Role = await guild.create_role(reason=roleData.get("reason", ""),
                                                      name=roleData.get("name", "No Name Given"),
-                                                     color=discord.Colour.random()
-                                                     if color == "random" or len(color) == 0 else
-                                                     discord.Color.from_str(color),
+                                                     color=getColor(str(roleData.get("color", ""))),
                                                      mentionable=bool(roleData.get("mentionable", True)),
                                                      hoist=bool(roleData.get("hoist", True)),
-                                                     permissions=discord.Permissions(
-                                                         **dict(roleData.get("permissions", {}))))
+                                                     permissions=getDiscordPermission(
+                                                         dict(roleData.get("permissions", {}))))
         pos: str = str(roleData.get("position", ""))
         if pos.isdigit():
             await role.edit(position=int(pos))
@@ -256,26 +256,7 @@ async def createRoleNoDisplayIcon(roleData: dict, guild: discord.Guild) -> disco
 
 
 async def deleteRole(roleData: dict, guild: discord.Guild) -> List[discord.Role] | None:
-    roleId: str = str(roleData.get("id", ""))
-    roleName: str = str(roleData.get("name", ""))
-    roles = set()
-    if roleId.isdigit():
-        # search by id
-        roles.add(guild.get_role(int(roleId)))
-
-    if len(roleName.replace(" ", "")) > 0:
-        if roleName == "@everyone":
-            return None
-        # search by name
-        if roleName == "*":
-            for r in guild.roles:
-                if r.name != "@everyone":
-                    roles.add(r)
-        else:
-            for r in guild.roles:
-                if r.name != "@everyone" and r.name == roleName:
-                    roles.add(r)
-
+    roles = getRoles(roleData, guild)
     deleted = []
     reason = str(roleData.get("reason", ""))
     for r in roles:
@@ -285,6 +266,30 @@ async def deleteRole(roleData: dict, guild: discord.Guild) -> List[discord.Role]
         except Exception:
             continue
     return deleted
+
+
+def getRoles(roleData: dict, guild: discord.Guild) -> list:
+    try:
+        roleId: str = str(roleData.get("id", ""))
+        roleName: str = str(roleData.get("name", ""))
+        roles = set()
+        if roleId.isdigit():
+            # search by id
+            roles.add(guild.get_role(int(roleId)))
+
+        if len(roleName.replace(" ", "")) > 0 and roleName != "@everyone":
+            # search by name
+            if roleName == "*":
+                for r in guild.roles:
+                    if r.name != "@everyone":
+                        roles.add(r)
+            else:
+                for r in guild.roles:
+                    if r.name != "@everyone" and r.name == roleName:
+                        roles.add(r)
+        return list(roles)
+    except Exception:
+        return []
 
 
 async def banUser(member: discord.Member, reason: str = "") -> bool:
@@ -359,7 +364,6 @@ async def userMute(member: discord.Member, status: bool, reason: str = "") -> bo
 
 
 def getRoleData(role: discord.Role) -> dict:
-    print(role.color)
     roleData = dict()
     roleData["name"] = role.name
     roleData["color"] = role.color
@@ -373,7 +377,6 @@ def getRoleData(role: discord.Role) -> dict:
     for member in role.members:
         users.append(member.id)
     roleData["users"] = users
-    print(roleData["permissions"])
     return roleData
 
 
@@ -382,4 +385,123 @@ async def deleteRole(role: discord.Role, reason: str = "") -> bool:
         await role.delete(reason=reason)
         return True
     except Exception:
+        return False
+
+
+async def editRole(roleData: dict, role: discord.Role, guild: discord.Guild) -> bool:
+    try:
+        position: str | None = str(roleData.get("position", None))
+        reason: str = str(roleData.get("reason", ""))
+        if position is None or not position.isdigit():
+            position = None
+        try:
+            await role.edit(name=str(roleData.get("new_name", "Edited Role")),
+                            reason=reason,
+                            color=getColor(str(roleData.get("color", ""))), hoist=bool(roleData.get("hoist", True)),
+                            mentionable=bool(roleData.get("mentionable", True)), position=int(position),
+                            permissions=getDiscordPermission(dict(roleData.get("permissions", {}))),
+                            display_icon=roleData.get("display_icon", None))
+        except Exception:
+            try:
+                await role.edit(name=str(roleData.get("new_name", "Edited Role")),
+                                reason=str(roleData.get("reason", "")),
+                                color=getColor(str(roleData.get("color", ""))), hoist=bool(roleData.get("hoist", True)),
+                                mentionable=bool(roleData.get("mentionable", True)), position=int(position),
+                                permissions=getDiscordPermission(dict(roleData.get("permissions", {}))))
+            except Exception:
+                return False
+
+        if "users" in roleData.keys():
+            users: list = list(roleData.get("users", []))
+            for member in role.members:
+                if member.id in users:
+                    continue
+                await removeRole(member, role, reason=reason)
+
+            for userId in users:
+                member: discord.Member | None = getMemberGuild(guild, userId)
+                if member is None or memberHasRole(member, role):
+                    continue
+                await addRole(member, role, reason=reason)
+
+        return True
+    except Exception:
+        return False
+
+
+def getColor(color: str) -> discord.Color:
+    try:
+        return discord.Colour.random() if color == "random" or len(color) == 0 else discord.Color.from_str(color)
+    except Exception:
+        return discord.Color.red()
+
+
+def getDiscordPermission(permissions: dict) -> discord.Permissions:
+    return discord.Permissions(**permissions)
+
+
+def memberHasRole(member: discord.Member, role: discord.Role) -> bool:
+    return member.get_role(role.id) is not None
+
+
+def getGuildData(guild: discord.Guild) -> dict:
+    data = dict()
+    data["name"] = guild.name
+    data["banner"] = guild.banner
+    data["id"] = guild.id
+    data["afk_channel_id"] = guild.afk_channel.id if guild.afk_channel is not None else 0
+    data["afk_timeout"] = guild.afk_timeout
+    data["member_count"] = guild.member_count
+    data["bitrate_limit"] = guild.bitrate_limit
+    data["created_at"] = guild.created_at
+    data["default_notifications"] = str(guild.default_notifications.name)
+    data["description"] = guild.description if guild.description is not None else ""
+    data["emoji_limit"] = guild.emoji_limit
+    data["icon"] = guild.icon.__str__() if guild.icon is not None else ""
+    data["widget_enabled"] = guild.widget_enabled
+    data["verification_level"] = str(guild.verification_level.name)
+    data["large"] = guild.large
+    data["max_members"] = guild.max_members if guild.max_members is not None else 0
+    data["max_presences"] = guild.max_presences if guild.max_presences is not None else 0
+    data["max_stage_video_users"] = guild.max_stage_video_users if guild.max_stage_video_users is not None else 0
+    data["max_video_channel_users"] = guild.max_video_channel_users if guild.max_video_channel_users is not None else 0
+    data["mfa_level"] = str(guild.mfa_level.name)
+    data["nsfw_level"] = str(guild.nsfw_level.name)
+    data["owner_id"] = guild.owner.id
+    data["owner_name"] = guild.owner.name
+    data["preferred_locale"] = str(guild.preferred_locale.name)
+    data["premium_progress_bar_enabled"] = guild.premium_progress_bar_enabled
+    data["explicit_content_filter"] = str(guild.explicit_content_filter.name)
+    data["premium_subscription_count"] = guild.premium_subscription_count
+    data["premium_tier"] = guild.premium_tier
+    data["public_updates_channel_name"] = guild.public_updates_channel.name \
+        if guild.public_updates_channel is not None else ""
+    data["rules_channel_name"] = guild.rules_channel.name if guild.rules_channel is not None else ""
+    data["shard_id"] = guild.shard_id
+    data["vanity_url"] = guild.vanity_url if guild.vanity_url is not None else ""
+    data["vanity_url_code"] = guild.vanity_url_code if guild.vanity_url_code is not None else ""
+    data["widget_channel_name"] = guild.widget_channel.name if guild.widget_channel is not None else ""
+    data["filesize_limit"] = guild.filesize_limit
+    data["safety_alerts_channel_name"] = guild.safety_alerts_channel.name \
+        if guild.safety_alerts_channel is not None else ""
+    data["sticker_limit"] = guild.sticker_limit
+    data["unavailable"] = guild.unavailable
+    data["system_channel_name"] = guild.system_channel.name if guild.system_channel is not None else ""
+    data["chunked"] = guild.chunked
+    return data
+
+
+async def editGuild(guildData: dict, guild: discord.Guild, reason: str = "") -> bool:
+    # TODO Finish this
+    try:
+        print(guildData.get("description"))
+        print(guildData.get("icon"))
+        print(guildData.get("banner"))
+        await guild.edit(reason=reason, name=str(guildData.get("name", "ServerName")),
+                         description=guildData.get("description"), icon=guildData.get("icon"),
+                         banner=guildData.get("banner"))
+
+        return True
+    except Exception as e:
+        print(e)
         return False

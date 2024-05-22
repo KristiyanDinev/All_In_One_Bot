@@ -60,31 +60,11 @@
     "actions": {
         "idk": {
             "guild": {
-                "role_create": [
-                    {
-                        "permissions": {"send_messages":  true},
-                        "reason": "Idk reason",
-                        "users": [],
-                        "give_reason": "because",
-                        "name": "Test",
-                        "color": "",
-                        "position": 2,
-                        "hoist": true,
-                        "display_icon": ":)",
-                        "mentionable": true,
-                        "duration": 5,
-                        "delete_reason": "Deleted role"
-                    }],
-                "role_delete": [
-                    {
-                        "id": 1242036550787661834,
-                        "name": "Test",
-                        "reason": "delete role",
-                        "duration": 5,
-                        "create_reason": "Restore role",
-                        "give_back_roles_to_users": false
-                    }
-                ]
+                "overview": {
+                    "name": "Test",
+                    "duration": 3,
+                    "reason": "reason"
+                }
             }
         }
     },
