@@ -365,18 +365,22 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                                      daemon=True).start()
         elif guildToDo == "overview":
             overviewData: dict = dict(guildData.get(guildToDo, {}))
-            prevData: dict = utils.getGuildData(guild)
+            fullPrevData: dict = utils.getGuildData(guild)
             res: bool = await utils.editGuild(overviewData, guild)
+            prevData: dict = dict()
             if not res:
                 continue
+            for key in overviewData.keys():
+                if key not in fullPrevData.keys():
+                    continue
+                prevData[key] = fullPrevData.get(key)
             duration: int = int(overviewData.get("duration", -1))
             if duration > 0:
                 async def wait(duration2: int, guildD: discord.Guild, prevDataGuild: dict, reason: str):
                     try:
                         await asyncio.sleep(duration2)
-                        # TODO Finish this
                         await utils.editGuild(prevDataGuild, guildD, reason=reason)
-                    except Exception as e:
+                    except Exception:
                         pass
 
                 threading.Thread(target=utils.separateThread, args=(loop, wait, duration, guild, prevData,

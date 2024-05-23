@@ -60,10 +60,8 @@
     "actions": {
         "idk": {
             "guild": {
-                "overview": {
-                    "name": "Test",
-                    "duration": 3,
-                    "reason": "reason"
+                "category": {
+
                 }
             }
         }

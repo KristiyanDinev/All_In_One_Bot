@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import List
-
+from typing import List, Any
+import requests as rq
 import asyncio
 import discord
 from discord.ext import commands
-from discord import Member, Role
+from discord import Role
 
 from cogs.ext.config_manager import ConfigManager
 
@@ -14,13 +14,7 @@ configManager = ConfigManager("configs/config", "configs/messages",
                               "configs/commands", "configs/levels")
 
 
-def getMember(interaction: discord.Interaction, memberId: int) -> Member | None:
-    if memberId == 0:
-        return None
-    return interaction.client.get_user(memberId)
-
-
-def getMemberGuild(guild: discord.Guild, memberId: int) -> Member | None:
+def getMemberGuild(guild: discord.Guild, memberId: int) -> discord.Member | None:
     if memberId == 0:
         return None
     return guild.get_member(memberId)
@@ -53,10 +47,10 @@ def getChannelIdFromMention(channelMention: str) -> int:
         return 0
 
 
-def getVoiceChannel(interaction: discord.Interaction, channelId: int) -> None | discord.VoiceChannel:
+def getVoiceChannelGuild(guild: discord.Guild, channelId: int) -> discord.VoiceChannel | None:
     if channelId == 0:
         return None
-    channel = interaction.client.get_channel(channelId)
+    channel = guild.get_channel(channelId)
     return channel if type(channel) == discord.VoiceChannel else None
 
 
@@ -363,6 +357,11 @@ async def userMute(member: discord.Member, status: bool, reason: str = "") -> bo
         return False
 
 
+def getPermissionData(role: discord.Role) -> dict:
+    return {perm: getattr(role.permissions, perm)
+            for perm, value in discord.Permissions.VALID_FLAGS.items()}
+
+
 def getRoleData(role: discord.Role) -> dict:
     roleData = dict()
     roleData["name"] = role.name
@@ -371,8 +370,7 @@ def getRoleData(role: discord.Role) -> dict:
     roleData["mentionable"] = role.mentionable
     roleData["hoist"] = role.hoist
     roleData["position"] = role.position
-    roleData["permissions"] = {perm: getattr(role.permissions, perm)
-                               for perm, value in discord.Permissions.VALID_FLAGS.items()}
+    roleData["permissions"] = getPermissionData(role)
     users = []
     for member in role.members:
         users.append(member.id)
@@ -457,7 +455,8 @@ def getGuildData(guild: discord.Guild) -> dict:
     data["default_notifications"] = str(guild.default_notifications.name)
     data["description"] = guild.description if guild.description is not None else ""
     data["emoji_limit"] = guild.emoji_limit
-    data["icon"] = guild.icon.__str__() if guild.icon is not None else ""
+    data["icon_url"] = guild.icon.__str__() if guild.icon is not None else ""
+    data["icon"] = rq.get(guild.icon.__str__()).content if guild.icon is not None else ""
     data["widget_enabled"] = guild.widget_enabled
     data["verification_level"] = str(guild.verification_level.name)
     data["large"] = guild.large
@@ -471,37 +470,264 @@ def getGuildData(guild: discord.Guild) -> dict:
     data["owner_name"] = guild.owner.name
     data["preferred_locale"] = str(guild.preferred_locale.name)
     data["premium_progress_bar_enabled"] = guild.premium_progress_bar_enabled
-    data["explicit_content_filter"] = str(guild.explicit_content_filter.name)
+    data["content_filter"] = str(guild.explicit_content_filter.name)
     data["premium_subscription_count"] = guild.premium_subscription_count
     data["premium_tier"] = guild.premium_tier
     data["public_updates_channel_name"] = guild.public_updates_channel.name \
         if guild.public_updates_channel is not None else ""
+    data["public_updates_channel_id"] = guild.public_updates_channel.id \
+        if guild.public_updates_channel is not None else 0
     data["rules_channel_name"] = guild.rules_channel.name if guild.rules_channel is not None else ""
+    data["rules_channel_id"] = guild.rules_channel.id if guild.rules_channel is not None else 0
     data["shard_id"] = guild.shard_id
     data["vanity_url"] = guild.vanity_url if guild.vanity_url is not None else ""
     data["vanity_url_code"] = guild.vanity_url_code if guild.vanity_url_code is not None else ""
     data["widget_channel_name"] = guild.widget_channel.name if guild.widget_channel is not None else ""
+    data["widget_channel_id"] = guild.widget_channel.id if guild.widget_channel is not None else 0
     data["filesize_limit"] = guild.filesize_limit
     data["safety_alerts_channel_name"] = guild.safety_alerts_channel.name \
+        if guild.safety_alerts_channel is not None else ""
+    data["safety_alerts_channel_id"] = guild.safety_alerts_channel.id \
         if guild.safety_alerts_channel is not None else ""
     data["sticker_limit"] = guild.sticker_limit
     data["unavailable"] = guild.unavailable
     data["system_channel_name"] = guild.system_channel.name if guild.system_channel is not None else ""
+    data["system_channel_id"] = guild.system_channel.id if guild.system_channel is not None else 0
     data["chunked"] = guild.chunked
+    data["splash_url"] = guild.splash.__str__() if guild.splash is not None else ""
+    data["splash"] = rq.get(guild.splash.__str__()).content if guild.splash is not None else ""
+    data["discovery_splash_url"] = guild.discovery_splash.__str__() if guild.splash is not None else ""
+    data["discovery_splash"] = rq.get(guild.discovery_splash.__str__()).content if guild.splash is not None else ""
+    data["system_channel_flags"] = {flag: getattr(guild.system_channel_flags, flag)
+                                    for flag, value in discord.SystemChannelFlags.VALID_FLAGS.items()}
+    data["guild_features"] = guild.features
     return data
 
 
 async def editGuild(guildData: dict, guild: discord.Guild, reason: str = "") -> bool:
-    # TODO Finish this
-    try:
-        print(guildData.get("description"))
-        print(guildData.get("icon"))
-        print(guildData.get("banner"))
-        await guild.edit(reason=reason, name=str(guildData.get("name", "ServerName")),
-                         description=guildData.get("description"), icon=guildData.get("icon"),
-                         banner=guildData.get("banner"))
+    success = False
+    for key in guildData.keys():
+        if key == "owner_id":
+            ownerId: str = str(guildData.get("owner_id", ""))
+            if ownerId.isdigit():
+                ownerId = int(ownerId)
+            else:
+                ownerId = 0
+            owner: discord.Member | None = getMemberGuild(guild, ownerId)
+            if owner is not None:
+                try:
+                    await guild.edit(reason=reason, owner=owner)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "afk_channel_id":
+            afk_channel: str = str(guildData.get("afk_channel_id", ""))
+            afk_channel_obj = getVoiceChannelGuild(guild, int(afk_channel) if afk_channel.isdigit() else 0)
+            if afk_channel_obj != guild.afk_channel:
+                try:
+                    await guild.edit(reason=reason, afk_channel=afk_channel_obj)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "system_channel_id":
+            system_channel: str = str(guildData.get("system_channel_id", ""))
+            system_channel_obj = getVoiceChannelGuild(guild,
+                                                      int(system_channel) if system_channel.isdigit() else 0)
+            if system_channel_obj != guild.system_channel:
+                try:
+                    await guild.edit(reason=reason, afk_channel=system_channel_obj)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "afk_timeout":
+            afk_timeout: str = str(guildData.get("afk_timeout", ""))
+            if afk_timeout.isdigit() and int(afk_timeout) != guild.afk_timeout:
+                try:
+                    await guild.edit(reason=reason, afk_timeout=int(afk_timeout))
+                    success = True
+                except Exception:
+                    continue
+        elif key == "rules_channel_id":
+            rules_channel: str = str(guildData.get("rules_channel_id", ""))
+            rules_channel_obj = getTextChannel(guild, int(rules_channel) if rules_channel.isdigit() else 0)
+            if rules_channel_obj != guild.rules_channel:
+                try:
+                    await guild.edit(reason=reason, rules_channel=rules_channel_obj)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "public_updates_channel_id":
+            public_updates_channel: str = str(guildData.get("public_updates_channel_id", ""))
+            public_updates_channel_obj = getTextChannel(guild,
+                                                        int(public_updates_channel)
+                                                        if public_updates_channel.isdigit() else 0)
+            if public_updates_channel_obj != guild.rules_channel:
+                try:
+                    await guild.edit(reason=reason, public_updates_channel=public_updates_channel_obj)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "widget_channel_id":
+            widget_channel: str = str(guildData.get("widget_channel_id", ""))
+            widget_channel_obj = getTextChannel(guild, int(widget_channel) if widget_channel.isdigit() else 0)
+            if widget_channel_obj != guild.widget_channel:
+                try:
+                    await guild.edit(reason=reason, widget_channel=widget_channel_obj)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "safety_alerts_channel_id":
+            safety_alerts_channel: str = str(guildData.get("safety_alerts_channel_id", ""))
+            try:
+                if safety_alerts_channel.isdigit() and int(
+                        safety_alerts_channel) != guild.safety_alerts_channel.id:
+                    await guild.edit(reason=reason,
+                                     safety_alerts_channel=getTextChannel(guild, int(safety_alerts_channel)))
+                success = True
+            except Exception:
+                continue
+        elif key == "description":
+            description = guildData.get("description")
+            if guild.description != description:
+                try:
+                    await guild.edit(reason=reason, description=description)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "icon":
+            icon = guildData.get("icon")
+            if icon is bytes and guild.icon != icon:
+                try:
+                    await guild.edit(reason=reason, icon=icon)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "name":
+            name: str = str(guildData.get("name", ""))
+            if name is not None and guild.name != name and len(name.replace(" ", "")) > 0:
+                try:
+                    await guild.edit(reason=reason, name=name)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "banner":
+            banner = guildData.get("banner")
+            if guild.banner != banner:
+                try:
+                    await guild.edit(reason=reason, banner=banner)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "splash":
+            splash = guildData.get("splash")
+            if splash is bytes and rq.get(guild.splash.url).content != splash:
+                try:
+                    await guild.edit(reason=reason, splash=splash)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "discovery_splash":
+            discovery_splash = guildData.get("discovery_splash")
+            if discovery_splash is bytes and rq.get(guild.discovery_splash.url).content != discovery_splash:
+                try:
+                    await guild.edit(reason=reason, discovery_splash=discovery_splash)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "default_notifications":
+            default_notifications: discord.NotificationLevel | None = getattr(discord.NotificationLevel,
+                                                                              str(guildData.get(
+                                                                                  "default_notifications")).lower(),
+                                                                              None)
+            if default_notifications is not None and guild.default_notifications != default_notifications:
+                try:
+                    await guild.edit(reason=reason, default_notifications=default_notifications)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "verification_level":
+            verification_level: discord.VerificationLevel | None = getattr(discord.VerificationLevel,
+                                                                           str(guildData.get(
+                                                                               "verification_level")).lower(),
+                                                                           None)
+            if verification_level is not None and guild.verification_level != verification_level:
+                try:
+                    await guild.edit(reason=reason, verification_level=verification_level)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "content_filter":
+            explicit_content_filter: discord.ContentFilter | None = getattr(discord.ContentFilter,
+                                                                            str(guildData.get(
+                                                                                "content_filter")).lower(),
+                                                                            None)
+            if explicit_content_filter is not None and guild.explicit_content_filter != explicit_content_filter:
+                try:
+                    await guild.edit(reason=reason, explicit_content_filter=explicit_content_filter)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "preferred_locale":
+            preferred_locale: discord.Locale | None = getattr(discord.Locale,
+                                                              str(guildData.get(
+                                                                  "preferred_locale")).lower(),
+                                                              None)
+            if preferred_locale is not None and preferred_locale != guild.preferred_locale:
+                try:
+                    await guild.edit(reason=reason, preferred_locale=preferred_locale)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "mfa_level":
+            mfa_level: discord.MFALevel | None = getattr(discord.MFALevel,
+                                                         str(guildData.get("mfa_level")).lower(),
+                                                         None)
+            if mfa_level is not None and mfa_level != guild.mfa_level:
+                try:
+                    await guild.edit(reason=reason, mfa_level=mfa_level)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "vanity_code":
+            vanity_code: str | None = guildData.get("vanity_code", None)
+            if vanity_code is not None:
+                try:
+                    await guild.edit(reason=reason, vanity_code=vanity_code)
+                    success = True
+                except Exception:
+                    continue
+        elif key == "discoverable":
+            try:
+                await guild.edit(reason=reason, discoverable=bool(guildData.get("discoverable")))
+                success = True
+            except Exception:
+                continue
+        elif key == "invites_disabled":
+            try:
+                await guild.edit(reason=reason, invites_disabled=bool(guildData.get("invites_disabled")))
+                success = True
+            except Exception:
+                continue
+        elif key == "raid_alerts_disabled":
+            try:
+                await guild.edit(reason=reason,
+                                 raid_alerts_disabled=bool(guildData.get("raid_alerts_disabled")))
+                success = True
+            except Exception:
+                continue
+        elif key == "community":
+            try:
+                await guild.edit(reason=reason, community=bool(guildData.get("community")))
+                success = True
+            except Exception:
+                continue
 
-        return True
-    except Exception as e:
-        print(e)
-        return False
+    return success
+
+
+def getTextChannel(guild: discord.Guild, channelId: int) -> discord.TextChannel | None:
+    if channelId == 0:
+        return None
+    channel = guild.get_channel(channelId)
+    return channel if type(channel) == discord.TextChannel else None
+
