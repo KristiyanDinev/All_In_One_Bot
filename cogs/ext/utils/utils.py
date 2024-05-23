@@ -215,12 +215,8 @@ async def createRoleWithDisplayIcon(roleData: dict, guild: discord.Guild) -> dis
         if pos.isdigit():
             await role.edit(position=int(pos))
 
-        for usersId in list(roleData.get("users", [])):
-            if not str(usersId).isdigit():
-                continue
-            member: discord.Member | None = guild.get_member(int(usersId))
-            if member is not None:
-                await giveRoleToUser(member, role, str(roleData.get("give_reason", "")))
+        for user in getUsers(roleData, guild):
+            await giveRoleToUser(user, role, str(roleData.get("give_reason", "")))
     except Exception:
         return None
 
@@ -238,12 +234,8 @@ async def createRoleNoDisplayIcon(roleData: dict, guild: discord.Guild) -> disco
         if pos.isdigit():
             await role.edit(position=int(pos))
 
-        for usersId in list(roleData.get("users", [])):
-            if not str(usersId).isdigit():
-                continue
-            member: discord.Member | None = guild.get_member(int(usersId))
-            if member is not None:
-                await giveRoleToUser(member, role, str(roleData.get("give_reason", "")))
+        for user in getUsers(roleData, guild):
+            await giveRoleToUser(user, role, str(roleData.get("give_reason", "")))
         return role
     except Exception:
         return None
@@ -264,8 +256,8 @@ async def deleteRole(roleData: dict, guild: discord.Guild) -> List[discord.Role]
 
 def getRoles(roleData: dict, guild: discord.Guild) -> list:
     try:
-        roleId: str = str(roleData.get("id", ""))
-        roleName: str = str(roleData.get("name", ""))
+        roleId: str = str(roleData.get("role_id", ""))
+        roleName: str = str(roleData.get("role_name", ""))
         roles = set()
         if roleId.isdigit():
             # search by id
@@ -730,4 +722,29 @@ def getTextChannel(guild: discord.Guild, channelId: int) -> discord.TextChannel 
         return None
     channel = guild.get_channel(channelId)
     return channel if type(channel) == discord.TextChannel else None
+
+
+def getUsers(userData: dict, guild: discord.Guild) -> List[discord.User]:
+    userIds = userData.get("user_id")
+    userNames = userData.get("user_name")
+    if isinstance(userIds, int):
+        userIds = [userIds]
+    elif not isinstance(userIds, list):
+        userIds = []
+
+    if isinstance(userNames, str):
+        userNames = [userNames]
+    elif not isinstance(userNames, list):
+        userNames = []
+
+    users: list = []
+    for ids in userIds:
+        member: discord.Member | None = guild.get_member(ids)
+        if member is not None:
+            users.append(member)
+    for name in userNames:
+        member: discord.Member | None = discord.utils.get(guild.members, name=name)
+        if member is not None:
+            users.append(member)
+    return users
 
