@@ -97,7 +97,9 @@ async def handleActionCommands(interaction: discord.Interaction, commandsData: d
 
 async def handleUser(interaction: discord.Interaction, userData: dict):
     for userDo in userData.keys():
-        userDoData: dict = dict(userData.get(userDo, {}))
+        userDoData: dict = userData.get(userDo, {})
+        if isinstance(userDoData, dict):
+            continue
         duration: int = int(userDoData.get("duration", -1))
         loop = asyncio.get_running_loop()
         user = interaction.user
@@ -327,8 +329,13 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
         loop = asyncio.get_running_loop()
         # TODO finish this
         guild = interaction.guild
+        listData = guildData.get(guildToDo, [])
         if guildToDo == "role_create":
-            for rolesToCreate in list(guildData.get(guildToDo, [])):
+            if not isinstance(listData, list):
+                listData = []
+            for rolesToCreate in listData:
+                if not isinstance(rolesToCreate, dict):
+                    continue
                 duration: int = int(rolesToCreate.get("duration", -1))
                 role = await utils.createRoleWithDisplayIcon(rolesToCreate, guild)
                 if role is None:
@@ -348,7 +355,11 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                                                                         rolesToCreate.get("delete_reason", "")),
                                      daemon=True).start()
         elif guildToDo == "role_delete":
-            for rolesToDelete in list(guildData.get(guildToDo, [])):
+            if not isinstance(listData, list):
+                listData = []
+            for rolesToDelete in listData:
+                if not isinstance(rolesToDelete, dict):
+                    continue
                 duration: int = int(rolesToDelete.get("duration", -1))
                 roles: list = []
                 for selectedRole in utils.getRoles(rolesToDelete, interaction.guild):
@@ -388,7 +399,11 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                                                                         str(rolesToDelete.get("give_back_reason", ""))),
                                      daemon=True).start()
         elif guildToDo == "role_edit":
-            for rolesToEdit in list(guildData.get(guildToDo, [])):
+            if not isinstance(listData, list):
+                listData = []
+            for rolesToEdit in listData:
+                if not isinstance(rolesToEdit, dict):
+                    continue
                 roles: List[discord.Role] = utils.getRoles(rolesToEdit, guild)
                 edited: dict[discord.Role, dict] = dict()
                 for role in roles:
@@ -438,6 +453,57 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                 threading.Thread(target=utils.separateThread, args=(loop, wait, duration, guild, prevData,
                                                                     str(overviewData.get("reason", ""))),
                                  daemon=True).start()
+        elif guildToDo == "category_create":
+            if not isinstance(listData, list):
+                listData = []
+            for categoryData in listData:
+                if not isinstance(categoryData, dict):
+                    continue
+                category: discord.CategoryChannel | None = await utils.createCategory(categoryData, guild)
+                if category is None:
+                    continue
+                duration: int = int(categoryData.get("duration", -1))
+                if duration > 0:
+                    async def wait(duration2: int, categoryToDelete: discord.CategoryChannel, deleteReason: str):
+                        try:
+                            await asyncio.sleep(duration2)
+                            await utils.deleteCategory(categoryToDelete, deleteReason)
+                        except Exception:
+                            pass
+
+                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, category,
+                                                                        str(categoryData.get("category_delete_reason",
+                                                                                             ""))),
+                                     daemon=True).start()
+        elif guildToDo == "category_delete":
+            if not isinstance(listData, list):
+                listData = []
+            for categoryData in listData:
+                if not isinstance(categoryData, dict):
+                    continue
+                deletedCategories: List[discord.CategoryChannel] = []
+                for category in utils.getCategories(categoryData, guild):
+                    res: bool = await utils.deleteCategory(category, reason=str(categoryData.get("reason", "")))
+                    if res:
+                        deletedCategories.append(category)
+
+                duration: int = int(categoryData.get("duration", -1))
+                if duration > 0:
+                    async def wait(duration2: int, guildD: discord.Guild,
+                                   categoriesToCreate: List[discord.CategoryChannel], createReason: str):
+                        try:
+                            await asyncio.sleep(duration2)
+                            for categories in categoriesToCreate:
+                                catData: dict = utils.getCategoryData(categories)
+                                catData["reason"] = createReason
+                                await utils.createCategory(catData, guildD)
+                        except Exception:
+                            pass
+
+                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, guild, deletedCategories,
+                                                                        str(categoryData.get("category_create_reason",
+                                                                                             ""))),
+                                     daemon=True).start()
 
 
 async def handleAllActions(actionData: dict, interaction: discord.Interaction):

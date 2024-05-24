@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Any
+from typing import List, Any, Mapping, Union
 import requests as rq
 import asyncio
 import discord
@@ -748,3 +748,133 @@ def getUsers(userData: dict, guild: discord.Guild) -> List[discord.User]:
             users.append(member)
     return users
 
+
+async def createCategory(categoryData: dict, guild: discord.Guild) -> discord.CategoryChannel | None:
+    try:
+        position = categoryData.get("position")
+        if not isinstance(position, int):
+            position = 1
+        permissions = categoryData.get("permissions")
+        if isinstance(permissions, dict):
+            category: discord.CategoryChannel = await guild.create_category(
+                name=str(categoryData.get("name", "CategoryName")), position=position,
+                reason=str(categoryData.get("reason", "")), overwrites=getPermissionsMapping(permissions, guild))
+        else:
+            category: discord.CategoryChannel = await guild.create_category(
+                name=str(categoryData.get("name", "CategoryName")), position=position,
+                reason=str(categoryData.get("reason", "")))
+        return category
+    except Exception:
+        return None
+
+
+def getCategoryData(category: discord.CategoryChannel) -> dict:
+    data: dict = dict()
+    data["name"] = category.name
+    data["id"] = category.id
+    data["position"] = category.position
+    data["created_at"] = category.created_at
+    data["type"] = category.type.name
+    data["jump_url"] = category.jump_url
+    data["is_nsfw"] = category.is_nsfw()
+    data["category_id"] = category.category_id
+    #data["permissions"] = category.overwrites
+    data["permissions"] = getPermissionsDataFromMapping(category.overwrites)
+    print(data["permissions"])
+    return data
+
+
+async def deleteCategory(category: discord.CategoryChannel, reason: str = "") -> bool:
+    try:
+        await category.delete(reason=reason)
+        return True
+    except Exception:
+        return False
+
+
+def getPermissionsMapping(permissions: dict, guild: discord.Guild) -> Mapping[Union[Role, discord.Member], discord.PermissionOverwrite]:
+
+    overwrites = {}
+    users: list = permissions.get("users")
+    roles: list = permissions.get("roles")
+    if not isinstance(users, list):
+        users = []
+    if not isinstance(roles, list):
+        roles = []
+    for role in roles:
+        if not isinstance(role, dict):
+            continue
+        for r in getRoles(role, guild):
+            perms = role.get("permissions")
+            if not isinstance(perms, dict):
+                continue
+            overwrites[r] = discord.PermissionOverwrite(**perms)
+    for user in users:
+        if not isinstance(user, dict):
+            continue
+        for u in getUsers(user, guild):
+            perms = user.get("permissions")
+            if not isinstance(perms, dict):
+                continue
+            overwrites[u] = discord.PermissionOverwrite(**perms)
+
+    return overwrites
+
+
+def getPermissionsDataFromMapping(mapping: Mapping[Union[Role, discord.Member], discord.PermissionOverwrite]) -> dict:
+    data: dict = dict()
+    data["roles"] = []
+    data["users"] = []
+    for obj, permoverride in mapping.items():
+        if isinstance(obj, discord.Role):
+            roleData: dict = dict()
+            roleData["role_name"] = obj.name
+            roleData["role_id"] = obj.id
+            roleData["permissions"] = dict()
+            for name in permoverride.VALID_NAMES:
+                res = getattr(permoverride, name, None)
+                if res is None:
+                    continue
+                roleData["permissions"][name] = res
+            data["roles"].append(roleData)
+        elif isinstance(obj, discord.User) or isinstance(obj, discord.Member):
+            userData: dict = dict()
+            userData["user_name"] = obj.name
+            userData["user_id"] = obj.id
+            userData["permissions"] = dict()
+            for name in permoverride.VALID_NAMES:
+                res = getattr(permoverride, name, None)
+                if res is None:
+                    continue
+                userData["permissions"][name] = res
+            data["users"].append(userData)
+    return data
+
+
+async def editCategory(categoryData: dict, guild: discord.Guild) -> bool:
+    pass
+
+
+def getCategories(categoryData: dict, guild: discord.Guild) -> List[discord.CategoryChannel]:
+    categoryIds = categoryData.get("category_id")
+    categoryNames = categoryData.get("category_name")
+    if isinstance(categoryIds, int):
+        categoryIds = [categoryIds]
+    elif not isinstance(categoryIds, list):
+        categoryIds = []
+
+    if isinstance(categoryNames, str):
+        categoryNames = [categoryNames]
+    elif not isinstance(categoryNames, list):
+        categoryNames = []
+
+    categories: list = []
+    for ids in categoryIds:
+        for cat in guild.categories:
+            if cat.id == ids:
+                categories.append(cat)
+    for name in categoryNames:
+        for cat in guild.categories:
+            if cat.name == name:
+                categories.append(cat)
+    return categories
