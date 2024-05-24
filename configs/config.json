@@ -60,14 +60,7 @@
     "actions": {
         "idk": {
             "guild": {
-                "category_delete": [
-                    {
-                        "category_name": "Test",
-                        "duration": 5,
-                        "reason": "delete reason",
-                        "category_create_reason": "create reason"
-                    }
-                ]
+                "channel_create": []
             }
         }
     },

@@ -408,7 +408,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                 edited: dict[discord.Role, dict] = dict()
                 for role in roles:
                     prevStatus: dict = utils.getRoleData(role)
-                    res: bool = await utils.editRole(rolesToEdit, role, guild)
+                    res: bool = await utils.editRole(rolesToEdit, role)
                     if res:
                         edited[role] = prevStatus
                 duration: int = int(rolesToEdit.get("duration", -1))
@@ -419,10 +419,8 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                             await asyncio.sleep(duration2)
                             for editedRole, prevData in editedRoles.items():
                                 prevData["reason"] = editReason
-                                prevDataName = prevData["name"]
-                                prevData.pop("name")
-                                prevData["new_name"] = prevDataName
-                                await utils.editRole(prevData, editedRole, guildD)
+                                prevData["new_name"] = prevData.pop("name")
+                                await utils.editRole(prevData, editedRole)
                         except Exception:
                             pass
 
@@ -502,6 +500,36 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
 
                     threading.Thread(target=utils.separateThread, args=(loop, wait, duration, guild, deletedCategories,
                                                                         str(categoryData.get("category_create_reason",
+                                                                                             ""))),
+                                     daemon=True).start()
+        elif guildToDo == "category_edit":
+            if not isinstance(listData, list):
+                listData = []
+            for categoryData in listData:
+                if not isinstance(categoryData, dict):
+                    continue
+                editedCategories: Dict[discord.CategoryChannel, dict] = dict()
+                for category in utils.getCategories(categoryData, guild):
+                    categoryPrevData: dict = utils.getCategoryData(category)
+                    res: bool = await utils.editCategory(category, categoryData)
+                    if res:
+                        editedCategories[category] = categoryPrevData
+
+                duration: int = int(categoryData.get("duration", -1))
+                if duration > 0:
+                    async def wait(duration2: int, categoriesToEdit: Dict[discord.CategoryChannel, dict],
+                                   editReason: str):
+                        try:
+                            await asyncio.sleep(duration2)
+                            for categories, prevData in categoriesToEdit.items():
+                                prevData["reason"] = editReason
+                                prevData["new_name"] = prevData.pop("name")
+                                await utils.editCategory(categories, prevData)
+                        except Exception:
+                            pass
+
+                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, editedCategories,
+                                                                        str(categoryData.get("category_edit_reason",
                                                                                              ""))),
                                      daemon=True).start()
 

@@ -378,7 +378,7 @@ async def deleteRole(role: discord.Role, reason: str = "") -> bool:
         return False
 
 
-async def editRole(roleData: dict, role: discord.Role, guild: discord.Guild) -> bool:
+async def editRole(roleData: dict, role: discord.Role) -> bool:
     try:
         position: str | None = str(roleData.get("position", None))
         reason: str = str(roleData.get("reason", ""))
@@ -409,7 +409,7 @@ async def editRole(roleData: dict, role: discord.Role, guild: discord.Guild) -> 
                 await removeRole(member, role, reason=reason)
 
             for userId in users:
-                member: discord.Member | None = getMemberGuild(guild, userId)
+                member: discord.Member | None = getMemberGuild(role.guild, userId)
                 if member is None or memberHasRole(member, role):
                     continue
                 await addRole(member, role, reason=reason)
@@ -776,11 +776,9 @@ def getCategoryData(category: discord.CategoryChannel) -> dict:
     data["created_at"] = category.created_at
     data["type"] = category.type.name
     data["jump_url"] = category.jump_url
-    data["is_nsfw"] = category.is_nsfw()
+    data["nsfw"] = category.is_nsfw()
     data["category_id"] = category.category_id
-    #data["permissions"] = category.overwrites
     data["permissions"] = getPermissionsDataFromMapping(category.overwrites)
-    print(data["permissions"])
     return data
 
 
@@ -851,8 +849,22 @@ def getPermissionsDataFromMapping(mapping: Mapping[Union[Role, discord.Member], 
     return data
 
 
-async def editCategory(categoryData: dict, guild: discord.Guild) -> bool:
-    pass
+async def editCategory(category: discord.CategoryChannel, categoryData: dict) -> bool:
+    try:
+        position: int = categoryData.get("position")
+        if not isinstance(position, int):
+            position = category.position
+        permissions = categoryData.get("permissions")
+        if isinstance(permissions, dict):
+            await category.edit(reason=str(categoryData.get("reason", "")), name=str(categoryData.get("new_name", "")),
+                                position=position, nsfw=bool(categoryData.get("nsfw", False)),
+                                overwrites=getPermissionsMapping(permissions, category.guild))
+        else:
+            await category.edit(reason=str(categoryData.get("reason", "")), name=str(categoryData.get("new_name", "")),
+                                position=position, nsfw=bool(categoryData.get("nsfw", False)))
+        return True
+    except Exception:
+        return False
 
 
 def getCategories(categoryData: dict, guild: discord.Guild) -> List[discord.CategoryChannel]:
