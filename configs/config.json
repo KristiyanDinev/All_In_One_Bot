@@ -60,7 +60,20 @@
     "actions": {
         "idk": {
             "guild": {
-                "channel_create": []
+                "channel_create": [
+                    {
+                        "name": "Test",
+                        "category_name": "Test",
+                        "permissions": {
+                            "roles": [{"role_name": "Test", "permissions": {"send_messages": false}}]
+                        },
+                        "type": "text",
+                        "position": 3,
+                        "duration": 5,
+                        "reason": "test",
+                        "channel_delete_reason": "idk"
+                    }
+                ]
             }
         }
     },

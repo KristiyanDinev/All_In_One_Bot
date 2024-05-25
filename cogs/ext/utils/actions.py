@@ -206,7 +206,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict):
                 threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
                                                                     str(userDoData.get("role_add_reason", "")),
                                                                     roleRemoved),
-                                     daemon=True).start()
+                                 daemon=True).start()
         elif userDo == "timeout":
             timeoutedMembers: list = []
             strptime = datetime.strptime(reason, "YYYY-MM-DDTHH:MM:SS")
@@ -532,6 +532,60 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                                                                         str(categoryData.get("category_edit_reason",
                                                                                              ""))),
                                      daemon=True).start()
+        elif guildToDo == "channel_create":
+            if not isinstance(listData, list):
+                listData = []
+            for channelData in listData:
+                if not isinstance(channelData, dict):
+                    continue
+                channels: list = await utils.createChannel(channelData, guild)
+                if len(channels) == 0:
+                    continue
+                duration: int = int(channelData.get("duration", -1))
+                if duration > 0:
+                    async def wait(duration2: int, channelsToDelete: list, deleteReason: str):
+                        try:
+                            await asyncio.sleep(duration2)
+                            for channel in channelsToDelete:
+                                await utils.deleteChannel(channel, deleteReason)
+                        except Exception:
+                            pass
+
+                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, channels,
+                                                                        str(channelData.get("channel_delete_reason",
+                                                                                            ""))),
+                                     daemon=True).start()
+        elif guildToDo == "channel_delete":
+            if not isinstance(listData, list):
+                listData = []
+            for channelData in listData:
+                if not isinstance(channelData, dict):
+                    continue
+                deletedChannels: list = []
+                for channel in utils.getChannels(channelData, guild):
+                    res: bool = await utils.deleteChannel(channel, reason=str(channelData.get("reason", "")))
+                    if res:
+                        deletedChannels.append(channel)
+                duration: int = int(channelData.get("duration", -1))
+                if duration > 0:
+                    async def wait(duration2: int, channelsToCreate: list, createReason: str):
+                        try:
+                            await asyncio.sleep(duration2)
+                            for channel in channelsToCreate:
+                                data: dict = utils.getChannelData(channel)
+                                data["reason"] = createReason
+                                try:
+                                    await utils.createChannel(data, channel.guild)
+                                except Exception:
+                                    continue
+                        except Exception:
+                            pass
+
+                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, deletedChannels,
+                                                                        str(channelData.get("channel_create_reason",
+                                                                                            ""))),
+                                     daemon=True).start()
+
 
 
 async def handleAllActions(actionData: dict, interaction: discord.Interaction):
