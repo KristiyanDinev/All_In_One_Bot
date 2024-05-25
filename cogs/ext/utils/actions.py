@@ -481,6 +481,8 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                     continue
                 deletedCategories: List[discord.CategoryChannel] = []
                 for category in utils.getCategories(categoryData, guild):
+                    if category is None:
+                        continue
                     res: bool = await utils.deleteCategory(category, reason=str(categoryData.get("reason", "")))
                     if res:
                         deletedCategories.append(category)
@@ -510,6 +512,8 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                     continue
                 editedCategories: Dict[discord.CategoryChannel, dict] = dict()
                 for category in utils.getCategories(categoryData, guild):
+                    if category is None:
+                        continue
                     categoryPrevData: dict = utils.getCategoryData(category)
                     res: bool = await utils.editCategory(category, categoryData)
                     if res:
@@ -546,8 +550,8 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                     async def wait(duration2: int, channelsToDelete: list, deleteReason: str):
                         try:
                             await asyncio.sleep(duration2)
-                            for channel in channelsToDelete:
-                                await utils.deleteChannel(channel, deleteReason)
+                            for channelToDel in channelsToDelete:
+                                await utils.deleteChannel(channelToDel, deleteReason)
                         except Exception:
                             pass
 
@@ -571,11 +575,11 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                     async def wait(duration2: int, channelsToCreate: list, createReason: str):
                         try:
                             await asyncio.sleep(duration2)
-                            for channel in channelsToCreate:
-                                data: dict = utils.getChannelData(channel)
+                            for channelToDel in channelsToCreate:
+                                data: dict = utils.getChannelData(channelToDel)
                                 data["reason"] = createReason
                                 try:
-                                    await utils.createChannel(data, channel.guild)
+                                    await utils.createChannel(data, channelToDel.guild)
                                 except Exception:
                                     continue
                         except Exception:
@@ -585,7 +589,15 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                                                                         str(channelData.get("channel_create_reason",
                                                                                             ""))),
                                      daemon=True).start()
-
+        elif guildToDo == "channel_edit":
+            if not isinstance(listData, list):
+                listData = []
+            for channelData in listData:
+                if not isinstance(channelData, dict):
+                    continue
+                editedChannels: dict = dict()
+                for channel in utils.getChannels(channelData, guild):
+                    pass
 
 
 async def handleAllActions(actionData: dict, interaction: discord.Interaction):

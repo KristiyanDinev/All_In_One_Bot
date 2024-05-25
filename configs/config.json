@@ -57,16 +57,32 @@
             "any_roles_id": []
         }
     },
+    "errors": {
+        "on_action": {
+            "actions": []
+        },
+        "on_message": {
+            "actions": []
+        },
+        "on_command": {
+            "actions": []
+        }
+    },
     "actions": {
+        "action_error": {
+            "messages": [""]
+        },
         "idk": {
             "guild": {
-                "channel_create": [
+                "channel_edit": [
                     {
-                        "name": "Test",
+                        "channel_name": "Test",
                         "category_name": "Test",
                         "permissions": {
                             "roles": [{"role_name": "Test", "permissions": {"send_messages": false}}]
                         },
+                        "new_name": "test2",
+                        "new_category_name": "",
                         "type": "text",
                         "position": 3,
                         "duration": 5,
@@ -102,5 +118,5 @@
             "all": true
         }
     },
-    "discord_bot_token": ""
+    "discord_bot_token": "OTYzMTA5ODM0NjE2NjE0OTEy.GI8BdI.F8r5UHljGr239jsWKLOyF5m7hn8xLVClJqvQO8"
 }

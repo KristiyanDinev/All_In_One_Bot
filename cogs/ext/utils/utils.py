@@ -864,7 +864,7 @@ async def editCategory(category: discord.CategoryChannel, categoryData: dict) ->
         return False
 
 
-def getCategories(categoryData: dict, guild: discord.Guild) -> List[discord.CategoryChannel]:
+def getCategories(categoryData: dict, guild: discord.Guild) -> list[None] | list:
     categoryIds = categoryData.get("category_id")
     categoryNames = categoryData.get("category_name")
     if isinstance(categoryIds, int):
@@ -886,6 +886,8 @@ def getCategories(categoryData: dict, guild: discord.Guild) -> List[discord.Cate
         for cat in guild.categories:
             if cat.name == name:
                 categories.append(cat)
+    if len(categories) == 0:
+        return [None]
     return categories
 
 
@@ -911,6 +913,23 @@ def getChannels(channelData: dict, guild: discord.Guild) -> list:
         for cha in guild.channels:
             if cha.name == name:
                 channels.append(cha)
+
+    category_name = channelData.get("category_name")
+    if isinstance(category_name, str):
+        category_name = [category_name]
+    if not isinstance(category_name, list):
+        category_name = []
+
+    category_id = channelData.get("category_id")
+    if isinstance(category_id, int):
+        category_id = [category_id]
+    if not isinstance(category_id, list):
+        category_id = []
+
+    for i in range(len(channels)):
+        channel = channels[i]
+        if not (channel.category is not None and (channel.category.id in category_id or channel.category.name in category_name)):
+            channels.pop(i)
     return channels
 
 
@@ -966,7 +985,7 @@ async def createChannel(channelData: dict, guild: discord.Guild) -> list:
             if video_quality_mode is not None:
                 await channel.edit(video_quality_mode=video_quality_mode)
             createdChannels.append(channel)
-        elif channel_type == "forms":
+        elif channel_type == "form":
             channel = await guild.create_forum(name=str(channelData.get("name", "ChannelName")),
                                                reason=str(channelData.get("reason")), category=category,
                                                position=position, nsfw=bool(channelData.get("nsfw", False)),
@@ -1033,12 +1052,14 @@ async def createChannel(channelData: dict, guild: discord.Guild) -> list:
     return createdChannels
 
 
-async def deleteChannel(channel: discord.TextChannel, reason: str = "") -> bool:
+async def deleteChannel(channel: Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel],
+                        reason: str = "") -> bool:
     try:
         await channel.delete(reason=reason)
         return True
     except Exception:
         return False
+
 
 def getChannelData(channel: Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel]) -> dict:
     data: dict = dict()
@@ -1073,4 +1094,104 @@ def getChannelData(channel: Union[discord.TextChannel, discord.VoiceChannel, dis
         data["default_layout"] = channel.default_layout
         data["available_tags"] = channel.available_tags
     return data
+
+
+async def editChannel(channelData: dict,
+                      channel: Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel]) -> bool:
+    try:
+        channelDataCopy = channelData.copy()
+        channelDataCopy["category_name"] = channelDataCopy.pop("new_category_name")
+        channelDataCopy["category_id"] = channelDataCopy.pop("new_category_id")
+        permissions = channelDataCopy.get("permissions")
+        if not isinstance(permissions, dict):
+            permissions = dict()
+        overwrites = getPermissionsMapping(permissions, channel.guild)
+        video_quality_mode: discord.VideoQualityMode | None = getattr(discord.VideoQualityMode,
+                                                                      str(channelDataCopy.get("video_quality_mode",
+                                                                                              "")),
+                                                                      None)
+        for new_category in getCategories(channelDataCopy, channel.guild):
+            position: int = channelDataCopy.get("position")
+            if isinstance(position, int):
+                await channel.edit(position=position)
+
+            slowmode_delay: int = channelDataCopy.get("slowmode_delay")
+            if isinstance(slowmode_delay, int):
+                await channel.edit(slowmode_delay=slowmode_delay)
+
+            if isinstance(channel, discord.TextChannel):
+                await channel.edit(name=str(channelDataCopy.get("new_name", "NewChannelName")),
+                                   reason=str(channelDataCopy.get("reason", "")),
+                                   nsfw=bool(channelDataCopy.get("nsfw", False)),
+                                   sync_permissions=bool(channelDataCopy.get("sync_permissions", False)),
+                                   category=new_category,
+                                   overwrites=overwrites)
+                if "topic" in channelDataCopy.keys():
+                    await channel.edit(topic=str(channelDataCopy.get("topic")))
+
+                default_auto_archive_duration: int = channelDataCopy.get("default_auto_archive_duration")
+                if isinstance(default_auto_archive_duration, int):
+                    await channel.edit(default_auto_archive_duration=default_auto_archive_duration)
+
+                default_thread_slowmode_delay: int = channelDataCopy.get("default_thread_slowmode_delay")
+                if isinstance(default_thread_slowmode_delay, int):
+                    await channel.edit(default_thread_slowmode_delay=default_thread_slowmode_delay)
+            elif isinstance(channel, discord.VoiceChannel):
+                await channel.edit(name=str(channelDataCopy.get("new_name", "NewChannelName")),
+                                   reason=str(channelDataCopy.get("reason", "")),
+                                   nsfw=bool(channelDataCopy.get("nsfw", False)),
+                                   sync_permissions=bool(channelDataCopy.get("sync_permissions", False)),
+                                   category=new_category, overwrites=overwrites,
+                                   rtc_region=None if not isinstance(channelDataCopy.get("rtc_region", None), str)
+                                   else channelDataCopy.get("rtc_region"))
+
+                user_limit: int = channelDataCopy.get("user_limit")
+                if isinstance(user_limit, int):
+                    await channel.edit(user_limit=user_limit)
+                bitrate: int = channelDataCopy.get("bitrate")
+                if isinstance(bitrate, int):
+                    await channel.edit(bitrate=bitrate)
+
+                if video_quality_mode is not None:
+                    await channel.edit(video_quality_mode=video_quality_mode)
+            elif isinstance(channel, discord.StageChannel):
+                await channel.edit(name=str(channelDataCopy.get("new_name", "NewChannelName")),
+                                   reason=str(channelDataCopy.get("reason", "")),
+                                   nsfw=bool(channelDataCopy.get("nsfw", False)),
+                                   sync_permissions=bool(channelDataCopy.get("sync_permissions", False)),
+                                   category=new_category, overwrites=overwrites,
+                                   rtc_region=None if not isinstance(channelDataCopy.get("rtc_region", None), str)
+                                   else channelDataCopy.get("rtc_region"))
+
+                user_limit: int = channelDataCopy.get("user_limit")
+                if isinstance(user_limit, int):
+                    await channel.edit(user_limit=user_limit)
+
+                if video_quality_mode is not None:
+                    await channel.edit(video_quality_mode=video_quality_mode)
+            elif isinstance(channel, discord.ForumChannel):
+                await channel.edit(name=str(channelDataCopy.get("new_name", "NewChannelName")),
+                                   reason=str(channelDataCopy.get("reason", "")),
+                                   nsfw=bool(channelDataCopy.get("nsfw", False)),
+                                   sync_permissions=bool(channelDataCopy.get("sync_permissions", False)),
+                                   category=new_category,
+                                   overwrites=overwrites)
+
+                if "topic" in channelDataCopy.keys():
+                    await channel.edit(topic=str(channelDataCopy.get("topic")))
+
+                default_auto_archive_duration: int = channelDataCopy.get("default_auto_archive_duration")
+                if isinstance(default_auto_archive_duration, int):
+                    await channel.edit(default_auto_archive_duration=default_auto_archive_duration)
+
+                available_tags = channelData.get("available_tags")
+                if isinstance(available_tags, list):
+                    try:
+                        await channel.edit(available_tags=available_tags)
+                    except Exception:
+                        pass
+
+        return True
+    except Exception:
+        return False
 
