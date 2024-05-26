@@ -6,16 +6,18 @@ from datetime import datetime
 from typing import List, Dict
 
 import discord
-from discord import Member
 from discord.ext import commands
 import cogs.ext.utils.utils as utils
 import cogs.ext.utils.messages as messages
+import cogs.ext.utils.placeholders as placeholders_util
 
 
-async def handleActionMessages(interaction: discord.Interaction, messages_names: list):
+async def handleActionMessages(interaction: discord.Interaction, messages_names: list, action: str, doing: str):
+    # action = name of the action
+    # doing = messages
     for msg in messages_names:
-        await messages.handleMessage(interaction.client, interaction,
-                                     usePlaceholders(msg, interaction), DMUser=interaction.user)
+        await messages.handleMessage(interaction, msg, DMUser=interaction.user,
+                                     placeholders={utils.configManager.getActionPathPlaceholder(): action+":"+doing})
 
 
 async def handleCogCommandExecution(cog: commands.Cog, interaction: discord.Interaction,
@@ -30,55 +32,13 @@ async def handleCogCommandExecution(cog: commands.Cog, interaction: discord.Inte
             break
 
 
-def usePlaceholders(msg: str, interaction: discord.Interaction) -> str:
-    msg = msg.replace("@user.id", str(interaction.user.id))
-    msg = msg.replace("@user.name", str(interaction.user.name))
-    msg = msg.replace("@user.avatar.is_animated", str(interaction.user.avatar.is_animated()))
-
-    msg = msg.replace("@channel.id", str(interaction.channel.id))
-    msg = msg.replace("@channel.name", str(interaction.channel.name))
-    msg = msg.replace("@channel.type", str(interaction.channel.type.name))
-
-    botUser: discord.ClientUser | None = interaction.client
-    if botUser is not None:
-        msg = msg.replace("@bot.id", str(botUser.id))
-        msg = msg.replace("@bot.name", str(botUser.name))
-        msg = msg.replace("@bot.latency", str(interaction.client.latency))
-
-    msg = msg.replace("@guild.id", str(interaction.guild.id))
-    msg = msg.replace("@guild.name", str(interaction.guild.name))
-
-    for roleManager in utils.configManager.getRoleManagements():
-        botRoleManager: str = "@bot." + roleManager
-        userRoleManager: str = "@user." + roleManager
-        guildRoleManager: str = "@guild." + roleManager
-        if botRoleManager in msg and botUser is not None:
-            botMember: Member | None = interaction.guild.get_member(botUser.id)
-            if botMember is not None and checkIf(roleManager, utils.getRoleIdFromRoles(botMember.roles.copy()).copy()):
-                msg = msg.replace(botRoleManager, roleManager)
-
-        elif userRoleManager in msg:
-            if checkIf(roleManager, utils.getRoleIdFromRoles(interaction.user.roles.copy()).copy()):
-                msg = msg.replace(userRoleManager, roleManager)
-
-        elif guildRoleManager in msg:
-            if checkIf(roleManager, utils.getRoleIdFromRoles(list(interaction.guild.roles).copy()).copy()):
-                msg = msg.replace(userRoleManager, roleManager)
-    return msg
-
-
-def checkIf(roleManager: str, hasRoles: list) -> bool:
-    return (utils.allRolesContains(utils.configManager.getAllRolesIDByRoleManager(roleManager).copy(), hasRoles) or
-            utils.anyRolesContains(hasRoles, utils.configManager.getAnyRolesIDByRoleManager(roleManager).copy()))
-
-
 async def handleActionCommands(interaction: discord.Interaction, commandsData: dict):
     for command in commandsData.keys():
         comm: discord.app_commands.commands.ContextMenu | None = interaction.client.tree.get_command(command)
         if comm is not None:
             final_args = []
             for arg in commandsData.get(command):
-                final_args.append(usePlaceholders(arg, interaction))
+                final_args.append(arg)
 
             for name, file_name in utils.configManager.getCogData().items():
                 cog: commands.Cog = interaction.client.get_cog(name)
@@ -604,13 +564,13 @@ async def handleAllActions(actionData: dict, interaction: discord.Interaction):
     for action in actionData.keys():
         for doing in actionData.get(action).keys():
             if doing == "messages":
-                await handleActionMessages(interaction, list(actionData.get(action, {}).get(doing, [])).copy())
+                await handleActionMessages(interaction, list(actionData.get(action, {}).get(doing, [])).copy(), action, doing)
 
             elif doing == "commands":
-                await handleActionCommands(interaction, dict(actionData.get(action, {}).get(doing, {})).copy())
+                await handleActionCommands(interaction, dict(actionData.get(action, {}).get(doing, {})).copy(), action, doing)
 
             elif doing == "user":
-                await handleUser(interaction, dict(actionData.get(action, {}).get(doing, {})).copy())
+                await handleUser(interaction, dict(actionData.get(action, {}).get(doing, {})).copy(), action, doing)
 
             elif doing == "guild":
-                await handleGuild(interaction, dict(actionData.get(action, {}).get(doing, {})).copy())
+                await handleGuild(interaction, dict(actionData.get(action, {}).get(doing, {})).copy(), action, doing)

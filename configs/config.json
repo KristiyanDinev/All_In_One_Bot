@@ -64,32 +64,23 @@
         "on_message": {
             "actions": []
         },
+        "on_embed": {
+            "actions": ["send_error_message"]
+        },
+        "on_channel": {
+            "actions": []
+        },
         "on_command": {
             "actions": []
         }
     },
     "actions": {
-        "action_error": {
-            "messages": [""]
+        "send_error_message": {
+            "messages": ["action_error"]
         },
         "idk": {
             "guild": {
-                "channel_edit": [
-                    {
-                        "channel_name": "Test",
-                        "category_name": "Test",
-                        "permissions": {
-                            "roles": [{"role_name": "Test", "permissions": {"send_messages": false}}]
-                        },
-                        "new_name": "test2",
-                        "new_category_name": "",
-                        "type": "text",
-                        "position": 3,
-                        "duration": 5,
-                        "reason": "test",
-                        "channel_delete_reason": "idk"
-                    }
-                ]
+
             }
         }
     },
@@ -111,11 +102,16 @@
         "/message/",
         "/datetime/",
         "/level/",
-        "/xp/"
+        "/xp/",
+        "/notinline/",
+        "/id/",
+        "/invalid_username/",
+        "/action:path/",
+        "/error_path/"
     ],
     "command_restriction": {
         "avatar": {
-            "all": true
+            "all": {"reason": "Everyone can use it", "status": true}
         }
     },
     "discord_bot_token": "OTYzMTA5ODM0NjE2NjE0OTEy.GI8BdI.F8r5UHljGr239jsWKLOyF5m7hn8xLVClJqvQO8"

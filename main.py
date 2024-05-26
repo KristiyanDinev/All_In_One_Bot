@@ -123,8 +123,25 @@ if __name__ == "__main__":
 
     bot.run(token)
 
+
+
+
+
+# TODO LIST
+# + handle 131 utils.py | add error
+# + Do placeholders
+# + Do errors
+# + continue with actions
+
+
+
 """
 /*
+"messages": {
+    "avatar:mymessage": ["Error /error_path/"]
+}
+
+
 "embed_format": {
     "avatar": {
       "title": "/username/",
@@ -191,8 +208,9 @@ if __name__ == "__main__":
 
 
 "command_restriction": {
-    "avatar": {"roles_id":  [1111], "users_id":  [3131], "channels_id":  [123131]},
-    "say": {"all": true}
+    "avatar": {"roles_id":  {"reason": "", "status": [1111]}, "users_id": {"reason": "", "status": [3131]}, 
+    "channels_id":  {"reason": "", "status": [123131]}},
+    "say": {"all": {"reason": "", "status": false}}
   },
 
 

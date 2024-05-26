@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands
 import cogs.ext.utils.utils as utils
 import cogs.ext.utils.actions as actions
-import cogs.ext.utils.messages as messages
+import cogs.ext.utils.placeholders as placeholders_utils
 
 
 class ViewButton(discord.ui.Button):
@@ -55,7 +55,7 @@ def buildButtonData(bot: commands.Bot, msg: str, placeholders: dict) -> discord.
         return None
 
     eph = utils.configManager.getEphPlaceholder()
-    TempView.view = messages.usePlaceholders(msg, placeholders)
+    TempView.view = placeholders_utils.usePlaceholders(msg, placeholders)
     TempView.bot = bot
     TempView.timeout = utils.configManager.getButtonTimeout(msg)
     TempView.is_active_placeholder = utils.configManager.isActivePlaceholder(eph) and eph in msg

@@ -10,15 +10,10 @@
     }
   },
   "embed_format": {
-    "invalid_args": {
-      "title": "You have given wrong data",
-      "color": "rgb(255,0,0)",
-      "description": "/error/"
-    },
     "action_error": {
       "title": "You have error in your action",
-      "fields": {"error":  "/error:action:idk:guild:channel_edit/"}
-    }
+      "fields": {"error":  "/error/", "path":  "/error_path/"}
+    },
   },
 
   "messages": {

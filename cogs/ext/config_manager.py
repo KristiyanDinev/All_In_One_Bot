@@ -47,41 +47,70 @@ class ConfigManager:
         self.messagesData = self._readJSON(self.message_path)
 
     def getRoleManagements(self) -> list:
-        return list(self.configData.get("role_management", {}).keys())
+        res = self.configData.get("role_management", {})
+        if not isinstance(res, dict):
+            return []
+        return list(res.keys())
 
     def getAllRolesIDByRoleManager(self, manager: str) -> list:
-        return list(self.configData.get("role_management", {}).get(manager, {}).get("all_roles_id", []))
-
-    def getAnyRolesIDByRoleManager(self, manager: str) -> list:
-        return list(self.configData.get("role_management", {}).get(manager, {}).get("any_roles_id", []))
-
-    def getActionData(self, action: str) -> dict:
-        return dict(self.configData.get("actions", {}).get(action, {}))
-
-    def getActions(self, combined: str) -> list:
-        res = combined.split(" ")
-        return list(self.messagesData.get("views", {}).get(res[0], {}).get(res[1], {}).get("actions", []))
-
-    def getButtonsByView(self, view: str) -> list:
-        res = list(self.messagesData.get("views", {}).get(view, {}).keys())
-        res.remove("timeout")
+        res = self.__handleMaps(self.configData.get("role_management", {}))
+        res = self.__handleMaps(res.get(manager, {})).get("all_roles_id", [])
+        if not isinstance(res, list):
+            res = []
         return res
 
+    def getAnyRolesIDByRoleManager(self, manager: str) -> list:
+        res = self.__handleMaps(self.configData.get("role_management", {}))
+        res = self.__handleMaps(res.get(manager, {}))
+        res = res.get("any_roles_id", [])
+        if not isinstance(res, list):
+            return []
+        return res
+
+    def getActionData(self, action: str) -> dict:
+        return self.__handleMaps(self.__handleMaps(self.configData.get("actions", {})).get(action, {}))
+
+    def getActions(self, combined: str) -> list:
+        comb = combined.split(" ")
+        res = self.__handleMaps(self.messagesData.get("views", {}))
+        res = self.__handleMaps(res.get(comb[0], {}))
+        res = self.__handleMaps(res.get(comb[1], {})).get("actions", [])
+        if not isinstance(res, list):
+            return []
+        return list(res)
+
+    def getButtonsByView(self, view: str) -> list:
+        res = self.__handleMaps(self.messagesData.get("views", {}))
+        res = self.__handleMaps(res.get(view, {}))
+        if len(res.keys()) == 0:
+            return []
+        res.pop("timeout")
+        return list(res.keys())
+
     def getButtonStyle(self, combined: str) -> str:
-        res = combined.split(" ")
-        return str(self.messagesData.get("views", {}).get(res[0], {}).get(res[1], {}).get("style", "green"))
+        comb = combined.split(" ")
+        res = self.__handleMaps(self.messagesData.get("views", {}))
+        res = self.__handleMaps(res.get(comb[0], {}))
+        res = self.__handleMaps(res.get(comb[1], {}))
+        return str(res.get("style", "green"))
 
     def getButtonTimeout(self, view: str) -> float | None:
-        res = self.messagesData.get("views", {}).get(view, {}).get("timeout", None)
-        return None if res is None else float(res)
+        res = self.__handleMaps(self.messagesData.get("views", {}))
+        res = self.__handleMaps(res.get(view, {}))
+        res = res.get("timeout", None)
+        if not isinstance(res, int) or not isinstance(res, float):
+            return None
+        return res
 
     def getButtonCustomID(self, combined: str) -> str:
-        res = combined.split(" ")
-        return str(self.messagesData.get("views", {}).get(res[0], {}).get(res[1], {}).get("custom_id",
-                                                                                          str(random.randint(1, 1000))))
+        comb = combined.split(" ")
+        res = self.__handleMaps(self.messagesData.get("views", {}))
+        res = self.__handleMaps(res.get(comb[0], {}))
+        res = self.__handleMaps(res.get(comb[1], {}))
+        return str(res.get("custom_id", str(random.randint(1, 1000))))
 
     def getCogData(self) -> dict:
-        return dict(self.configData.get('cog_data', {}))
+        return self.__handleMaps(self.configData.get('cog_data', {}))
 
     def getBotToken(self) -> str:
         return str(self.configData.get("discord_bot_token", ""))
@@ -99,14 +128,22 @@ class ConfigManager:
         return str(self.messagesData.get("cog_not_found_status", "not found"))
 
     def hasButton(self, name: str) -> bool:
-        res: dict | None = self.messagesData.get("views", {}).get(name, None)
-        return res is not None
+        return self.__handleMaps(self.messagesData.get("views", {})).get(name, None) is not None
 
     def getButtonText(self, name: str) -> str:
-        return str(self.messagesData.get("views", {}).get(name, {}).get("label", "No label for " + name))
+        res = self.__handleMaps(self.messagesData.get("views", {}))
+        res = self.__handleMaps(res.get(name, {}))
+        return str(res.get("label", "No label for " + name))
+
+    def __handleMaps(self, res) -> dict:
+        if not isinstance(res, dict):
+            return dict()
+        return res
 
     def getButtonStyle(self, name: str) -> str:
-        return str(self.messagesData.get("views", {}).get(name, {}).get("style", "green"))
+        res = self.__handleMaps(self.messagesData.get("views", {}))
+        res = self.__handleMaps(res.get(name, {}))
+        return str(res.get("style", "green"))
 
     def getBlacklistedWords(self) -> list:
         return self.configData.get("blacklist_words", [])
@@ -114,7 +151,8 @@ class ConfigManager:
     def updateBlacklistWords(self, words: list):
         try:
             self.configData["blacklist_words"] = words
-        except Exception:
+        except Exception as e:
+            print(e)
             pass
 
     def getCommandData(self, command_name):
@@ -142,34 +180,69 @@ class ConfigManager:
             return res
 
     def getMessagesByChannel(self, name: str) -> list:
-        return list(self.messagesData.get("channel_messages", {}).get(name, {}).get("messages", []))
+        res = self.__handleMaps(self.messagesData.get("channel_messages", {}))
+        res = self.__handleMaps(res.get(name, {}))
+        res = res.get("messages", [])
+        if not isinstance(res, list):
+            return []
+        return res
 
     def getEmbedsByChannel(self, name: str) -> list:
-        return list(self.messagesData.get("channel_messages", {}).get(name, {}).get("embeds", []))
+        res = self.__handleMaps(self.messagesData.get("channel_messages", {}))
+        res = self.__handleMaps(res.get(name, {}))
+        res = res.get("embeds", [])
+        if not isinstance(res, list):
+            return []
+        return res
 
     def getButtonsByChannel(self, name: str) -> list:
-        return list(self.messagesData.get("channel_messages", {}).get(name, {}).get("views", []))
+        res = self.__handleMaps(self.messagesData.get("channel_messages", {}))
+        res = self.__handleMaps(res.get(name, {}))
+        res = res.get("views", [])
+        if not isinstance(res, list):
+            return []
+        return res
 
     def getChannelIdByName(self, name: str) -> int:
-        return int(self.configData.get("channels", {}).get(name, 0))
+        res = self.__handleMaps(self.configData.get("channels", {}))
+        res = res.get(name, 0)
+        if not isinstance(res, int):
+            return 0
+        return res
 
     def getWarningLevels(self) -> int:
-        return self.configData.get("warnings", {}).get("warns", 0)
+        res = self.__handleMaps(self.configData.get("warnings", {}))
+        res = res.get("warns", 0)
+        if not isinstance(res, int):
+            return 0
+        return res
 
     def getWarningDataForLevel(self, level: int) -> dict:
-        return self.configData.get("warnings", {}).get("warn-" + str(level), {})
+        return self.__handleMaps(self.__handleMaps(self.configData.get("warnings", {})).get("warn-" + str(level), {}))
 
     def getLevelGlobalMax(self) -> int:
-        return int(self.configData.get("leveling", {}).get("max_levels", 10))
+        res = self.__handleMaps(self.configData.get("leveling", {})).get("max_levels", 10)
+        if not isinstance(res, int):
+            return 10
+        return res
 
     def getLevelGlobalMin(self) -> int:
-        return int(self.configData.get("leveling", {}).get("min_levels", 0))
+        res = self.__handleMaps(self.configData.get("leveling", {})).get("min_levels", 0)
+        if not isinstance(res, int):
+            return 0
+        return res
 
     def getUserLevel(self, user_id) -> int:
-        return self.levelsData.get(str(user_id), {}).get("level", 0)
+        res = self.__handleMaps(self.levelsData.get(str(user_id), {})).get("level", 0)
+        if not isinstance(res, int):
+            return 0
+        return res
 
     def getUserXP(self, user_id) -> int:
-        return self.levelsData.get(str(user_id), {}).get("xp", 0)
+        res = self.__handleMaps(self.levelsData.get(str(user_id), {})).get("xp", 0)
+        if not isinstance(res, int):
+            return 0
+        return res
 
     def setUserLevel(self, user_id, level) -> None:
         try:
@@ -178,7 +251,8 @@ class ConfigManager:
                 self.levelsData[user_id_str]["level"] = int(level)
             else:
                 self.levelsData[user_id_str] = {"xp": self.getLevelXP(level), "level": int(level)}
-        except Exception:
+        except Exception as e:
+            print(e)
             pass
 
     def setUserXP(self, user_id, xp) -> None:
@@ -188,97 +262,113 @@ class ConfigManager:
                 self.levelsData[user_id_str]["xp"] = float(str(round(xp, 2)))
             else:
                 self.levelsData[user_id_str] = {"xp": float(str(round(xp, 2))), "level": self.getUserLevel(user_id)}
-        except Exception:
+        except Exception as e:
+            print(e)
             pass
 
     def getLevelExceptionalRoleMin(self, role_id) -> int | None:
-        res: str | None = self.configData.get("leveling", {}).get("level_limit_exceptions", {}).get("roles", {}).get(
-            str(role_id), {}).get("min_levels", None)
-        if res is None:
+        res = self.__handleMaps(self.configData.get("leveling", {}))
+        res = self.__handleMaps(res.get("level_limit_exceptions", {}))
+        res = self.__handleMaps(res.get("roles", {}))
+        res = self.__handleMaps(res.get(str(role_id), {}))
+        res = res.get("min_levels", None)
+        if not isinstance(res, int):
             return None
-        return int(res)
+        return res
 
     def getLevelExceptionalRoleMax(self, role_id) -> int | None:
-        res: str | None = self.configData.get("leveling", {}).get("level_limit_exceptions", {}).get("roles", {}).get(
-            str(role_id), {}).get("max_levels", None)
-        if res is None:
+        res = self.__handleMaps(self.configData.get("leveling", {}))
+        res = self.__handleMaps(res.get("level_limit_exceptions", {}))
+        res = self.__handleMaps(res.get("roles", {}))
+        res = self.__handleMaps(res.get(str(role_id)))
+        res = res.get("max_levels", None)
+        if not isinstance(res, int):
             return None
-        return int(res)
+        return res
 
     def getLevelExceptionalUserMin(self, user_id) -> int | None:
-        res: str | None = self.configData.get("leveling", {}).get("level_limit_exceptions", {}).get("users", {}).get(
-            str(user_id), {}).get("min_levels", None)
-        if res is None:
+        res = self.__handleMaps(self.configData.get("leveling", {}))
+        res = self.__handleMaps(res.get("level_limit_exceptions", {}))
+        res = self.__handleMaps(res.get("users", {}))
+        res = self.__handleMaps(res.get(str(user_id), {}))
+        res = res.get("min_levels", None)
+        if not isinstance(res, int):
             return None
-        return int(res)
+        return res
 
     def getLevelExceptionalUserMax(self, user_id) -> int | None:
-        res: str | None = self.configData.get("leveling", {}).get("level_limit_exceptions", {}).get("users", {}).get(
-            str(user_id), {}).get("max_levels", None)
-        if res is None:
+        res = self.__handleMaps(self.configData.get("leveling", {}))
+        res = self.__handleMaps(res.get("level_limit_exceptions", {}))
+        res = self.__handleMaps(res.get("users", {}))
+        res = self.__handleMaps(res.get(str(user_id), {}))
+        res = res.get("max_levels", None)
+        if not isinstance(res, int):
             return None
-        return int(res)
+        return res
 
     def getXPPerMessages(self) -> int:
-        return int(self.configData.get("leveling", {}).get("give_xp_per_messages", 1))
+        res = self.__handleMaps(self.configData.get("leveling", {})).get("give_xp_per_messages", 1)
+        if not isinstance(res, int):
+            return 1
+        return res
 
     def allLevels(self) -> int:
-        return int(self.configData.get("leveling", {}).get("levels", 999999999))
+        res = self.__handleMaps(self.configData.get("leveling", {})).get("levels", 999999999)
+        if not isinstance(res, int):
+            return 999999999
+        return res
 
     def getLevelupXPMultiplier(self) -> float:
-        return float(str(round(self.configData.get("leveling", {}).get("required_xp_for_levelup_multiplier", 4), 2)))
+        res = self.__handleMaps(self.configData.get("leveling", {}))
+        res = res.get("required_xp_for_levelup_multiplier", 4)
+        if not isinstance(res, int):
+            res = 4
+        return float(str(round(res, 2)))
 
     def getLevelXP(self, level) -> float:
-        return float(str(round(self.configData
-                               .get("leveling", {})
-                               .get("leveling", {})
-                               .get("level-" + str(level), int(level) * self.getLevelupXPMultiplier()), 2)))
+        res = self.__handleMaps(self.configData.get("leveling", {}))
+        res = self.__handleMaps(res.get("leveling", {}))
+        default = int(level) * self.getLevelupXPMultiplier()
+        res = res.get("level-" + str(level), default)
+        if not isinstance(res, float) or not isinstance(res, int):
+            return float(str(round(default, 2)))
+        return float(str(round(res, 2)))
 
     def getCommandMessages(self, command_name, message) -> list:
-        res = self.messagesData.get("messages", {}).get(message, [])
+        res = self.__handleMaps(self.messagesData.get("messages", {})).get(message, [])
+        if not isinstance(res, list):
+            res = []
         if len(res) == 0:
-            return self.getCommandData(command_name).get("messages", {}).get(message, [])
+            res = self.__handleMaps(self.getCommandData(command_name).get("messages", {})).get(message, [])
+            return [] if not isinstance(res, list) else res
         else:
             return res
 
     def getDMMessages(self, message) -> list:
-        return self.messagesData.get("dm", {}).get(message, {}).get("messages", [])
+        res = self.__handleMaps(self.__handleMaps(self.messagesData.get("dm", {}))
+                                .get(message, {})).get("messages", [])
+        if not isinstance(res, list):
+            return []
+        return res
 
     def getDMEmbeds(self, message) -> list:
-        return self.messagesData.get("dm", {}).get(message, {}).get("embeds", [])
+        res = self.__handleMaps(self.messagesData.get("dm", {}))
+        res = self.__handleMaps(res.get(message, {})).get("embeds", [])
+        if not isinstance(res, list):
+            return []
+        return res
 
     def getDMViews(self, message) -> list:
-        return self.messagesData.get("dm", {}).get(message, {}).get("views", [])
+        res = self.__handleMaps(self.messagesData.get("dm", {}))
+        res = self.__handleMaps(res.get(message, {}))
+        res = res.get("views", [])
+        if not isinstance(res, list):
+            return []
+        return res
 
     def getCommandActiveMessages(self, command_name) -> list:
-        return self.getCommandData(command_name).get("message_names", [])
-
-    def getInvalidMember(self):
-        return "Invalid Member"
-
-    def getInvalidRole(self):
-        return "Invalid Role"
-
-    def getInvalidChannel(self):
-        return "Invalid Channel"
-
-    def getInvalidArg(self):
-        return "Invalid Arg"
-
-    def getInvalidChannelKey(self):
-        return "invalid_channel"
-
-    def getRestrictedKey(self):
-        return "restricted"
-
-    def getInvalidArgsKey(self):
-        return "invalid_args"
-
-    def getInvalidMemberKey(self):
-        return "invalid_member"
-
-    def getInvalidRoleKey(self):
-        return "invalid_role"
+        res = self.getCommandData(command_name).get("message_names", [])
+        return res if isinstance(res, list) else []
 
     def getMentionMemberKey(self):
         return "mention_member_arg"
@@ -309,9 +399,6 @@ class ConfigManager:
 
     def getReasonKey(self):
         return "reason_arg"
-
-    def getUnknownErrorKey(self):
-        return "unknown_error"
 
     def getEmbedTitle(self):
         return "title"
@@ -364,11 +451,14 @@ class ConfigManager:
     def getBotLatencyPlaceholder(self):
         return "/bot_latency/"
 
-    def getErrorPlaceholder(self):
-        return "/error/"
-
     def getReasonPlaceholder(self):
         return "/reason/"
+
+    def getNotInLinePlaceholder(self):
+        return "/notinline/"
+
+    def getIDPlaceholder(self):
+        return "/id/"
 
     def getDatetimePlaceholder(self):
         return "/datetime/"
@@ -390,3 +480,26 @@ class ConfigManager:
 
     def getXPPlaceholder(self):
         return "/xp/"
+
+    def getInvalidUsernamePlaceholder(self):
+        return "/invalid_username/"
+
+    def getInvalidRolePlaceholder(self):
+        return "/invalid_role/"
+
+    def getInvalidArgumentPlaceholder(self):
+        return "/invalid_argument/"
+
+    def getInvalidChannelPlaceholder(self):
+        return "/invalid_channel/"
+
+    def getActionPathPlaceholder(self):
+        return "/action:path/"
+
+    def getErrorPlaceholder(self):
+        return '/error/'
+
+    def getErrorPathPlaceholder(self):
+        return '/error/'
+
+

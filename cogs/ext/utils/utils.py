@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Any, Mapping, Union
+from typing import List, Mapping, Union
 import requests as rq
 import asyncio
 import discord
@@ -51,7 +51,7 @@ def getVoiceChannelGuild(guild: discord.Guild, channelId: int) -> discord.VoiceC
     if channelId == 0:
         return None
     channel = guild.get_channel(channelId)
-    return channel if type(channel) == discord.VoiceChannel else None
+    return channel if isinstance(channel, discord.VoiceChannel) else None
 
 
 def addWordsToBlacklist(words: list):
@@ -126,59 +126,53 @@ def getWarningRolesFromLevel(interaction: discord.Interaction, level: int) -> Li
 def isUserRestricted(interaction: discord.Interaction, commandName: str) -> str:
     res = configManager.getCommandRestrictions(commandName)
     reason = ""
-    if res.get("all", None) is not None:
-        if res.get("all"):
-            return reason
-        else:
-            reason += "all;"
 
-    usersId: list | None = res.get("users_id", None)
-    if usersId is not None and interaction.user.id not in usersId:
-        reason += "user id;"
-
-    userRoleId: list = getRoleIdFromRoles(interaction.user.roles)
-    anyRolesId: list | None = res.get("any_roles_id", None)
-    if anyRolesId is not None and anyRolesContains(anyRolesId, userRoleId):
-        reason += "any roles;"
-
-    allRolesId: list | None = res.get("all_roles_id", None)
-    if allRolesId is not None and not allRolesContains(userRoleId, allRolesId):
-        reason += "all roles;"
-
-    channelsId = res.get("channels_id", None)
-    if channelsId is not None and interaction.channel.id not in channelsId:
-        reason += "channel id;"
+    for option, data in res.items():
+        if not isinstance(data, dict):
+            continue
+        dataReason = data.get("reason", "")
+        userRoleId: list = getRoleIdFromRoles(interaction.user.roles)
+        status = data.get("status", [])
+        if option == "all":
+            if bool(data.get("status", True)):
+                return reason
+            else:
+                reason += dataReason
+        elif option == "users_id" and isinstance(status, list) and interaction.user.id not in status:
+            reason += dataReason
+        elif option == "any_roles_id" and isinstance(status, list) and anyRolesContains(status, userRoleId):
+            reason += dataReason
+        elif option == "all_roles_id" and isinstance(status, list) and allRolesContains(status, userRoleId):
+            reason += dataReason
+        elif option == "channels_id" and isinstance(status, list) and interaction.channel.id not in status:
+            reason += dataReason
 
     return reason
 
 
 def isUserRestrictedCtx(ctx: discord.ext.commands.context.Context, commandName: str) -> str:
     res = configManager.getCommandRestrictions(commandName)
-    restrictedReason = ""
-    if res.get("all", None) is not None:
-        if res.get("all"):
-            return restrictedReason
-        else:
-            restrictedReason += "all;"
-
-    usersId: list | None = res.get("users_id", None)
-    if usersId is not None and ctx.author.id not in usersId:
-        restrictedReason += "user id;"
-
-    userRoleId: list = getRoleIdFromRoles(ctx.author.roles)
-    anyRolesId: list | None = res.get("any_roles_id", None)
-    if anyRolesId is not None and anyRolesContains(anyRolesId, userRoleId):
-        restrictedReason += "any roles;"
-
-    allRolesId: list | None = res.get("all_roles_id", None)
-    if allRolesId is not None and not allRolesContains(userRoleId, allRolesId):
-        restrictedReason += "all roles;"
-
-    channelsId = res.get("channels_id", None)
-    if channelsId is not None and ctx.channel.id not in channelsId:
-        restrictedReason += "channel id;"
-
-    return restrictedReason
+    reason = ""
+    for option, data in res.items():
+        if not isinstance(data, dict):
+            continue
+        dataReason = data.get("reason", "")
+        userRoleId: list = getRoleIdFromRoles(ctx.author.roles)
+        status = data.get("status", [])
+        if option == "all":
+            if bool(data.get("status", True)):
+                return reason
+            else:
+                reason += dataReason
+        elif option == "users_id" and isinstance(status, list) and ctx.author.id not in status:
+            reason += dataReason
+        elif option == "any_roles_id" and isinstance(status, list) and anyRolesContains(status, userRoleId):
+            reason += dataReason
+        elif option == "all_roles_id" and isinstance(status, list) and allRolesContains(status, userRoleId):
+            reason += dataReason
+        elif option == "channels_id" and isinstance(status, list) and ctx.channel.id not in status:
+            reason += dataReason
+    return reason
 
 
 def separateThread(loop, func, *args):
