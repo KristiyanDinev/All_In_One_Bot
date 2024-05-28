@@ -91,28 +91,28 @@ async def on_ready():
     for loc in FindAll("cogs", exclusions=["__init__.py", "cogs\\ext", "cogs\\ext\\utils", "moderator_cog.py"]):
         await bot.load_extension(name=loc)
     print('Bot:', bot.user.name)
-    await messages.handleMessageCtx(bot, None, "on_ready",
+    await messages.handleMessageCtx(None, "on_ready",
                                     placeholders={utils.configManager.getUsernamePlaceholder(): bot.user.name,
                                                   utils.configManager.getNumberPlaceholder(): bot.user.id})
 
 
 @bot.command()
 async def sync(ctx):
-    if await messages.handleRestrictedCtx(bot, ctx, "sync"):
+    if await messages.handleRestrictedCtx(ctx, "sync"):
         return
 
     synced = await bot.tree.sync()
-    await messages.handleMessageCtx(bot, ctx, "sync",
+    await messages.handleMessageCtx(ctx, "sync",
                                     placeholders={utils.configManager.getNumberPlaceholder(): str(len(synced))})
 
 
 @bot.command()
 async def reload(ctx: discord.ext.commands.context.Context):
-    if await messages.handleRestrictedCtx(bot, ctx, "reload"):
+    if await messages.handleRestrictedCtx(ctx, "reload"):
         return
 
     utils.configManager.reloadConfig()
-    await messages.handleMessageCtx(bot, ctx, "reload")
+    await messages.handleMessageCtx(ctx, "reload")
 
 
 if __name__ == "__main__":

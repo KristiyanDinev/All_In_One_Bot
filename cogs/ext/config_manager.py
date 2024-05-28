@@ -3,19 +3,14 @@ import random, os, json
 
 
 class ConfigManager:
-    def __init__(self, configPath, messagesConfigPath, warningsConfigPath, commandsFolderPath, levelConfigPath):
+    def __init__(self, configPath, messagesConfigPath, warningsConfigPath, commandsFolderPath):
         self.config_path = configPath
         self.message_path = messagesConfigPath
         self.warning_path = warningsConfigPath
         self.command_folder = commandsFolderPath
-        self.levels_path = levelConfigPath
-        self.levelsData = self._readJSON(levelConfigPath)
         self.warningsData = self._readJSON(warningsConfigPath)
         self.configData = self._readJSON(configPath)
         self.messagesData = self._readJSON(messagesConfigPath)
-
-    def saveLevelJSON(self) -> None:
-        self._saveJSON(self.levels_path, self.levelsData)
 
     def saveCommandJSON(self, command: str, command_data: dict) -> None:
         self._saveJSON(self.command_folder + "/" + command + ".json", command_data)
@@ -210,129 +205,11 @@ class ConfigManager:
             return 0
         return res
 
-    def getWarningLevels(self) -> int:
-        res = self.__handleMaps(self.configData.get("warnings", {}))
-        res = res.get("warns", 0)
-        if not isinstance(res, int):
-            return 0
+    def isPrintError(self) -> bool:
+        res = self.configData.get("print_error_if_original_error_fails", True)
+        if not isinstance(res, bool):
+            return False
         return res
-
-    def getWarningDataForLevel(self, level: int) -> dict:
-        return self.__handleMaps(self.__handleMaps(self.configData.get("warnings", {})).get("warn-" + str(level), {}))
-
-    def getLevelGlobalMax(self) -> int:
-        res = self.__handleMaps(self.configData.get("leveling", {})).get("max_levels", 10)
-        if not isinstance(res, int):
-            return 10
-        return res
-
-    def getLevelGlobalMin(self) -> int:
-        res = self.__handleMaps(self.configData.get("leveling", {})).get("min_levels", 0)
-        if not isinstance(res, int):
-            return 0
-        return res
-
-    def getUserLevel(self, user_id) -> int:
-        res = self.__handleMaps(self.levelsData.get(str(user_id), {})).get("level", 0)
-        if not isinstance(res, int):
-            return 0
-        return res
-
-    def getUserXP(self, user_id) -> int:
-        res = self.__handleMaps(self.levelsData.get(str(user_id), {})).get("xp", 0)
-        if not isinstance(res, int):
-            return 0
-        return res
-
-    def setUserLevel(self, user_id, level) -> None:
-        try:
-            user_id_str = str(user_id)
-            if user_id_str in self.levelsData.keys():
-                self.levelsData[user_id_str]["level"] = int(level)
-            else:
-                self.levelsData[user_id_str] = {"xp": self.getLevelXP(level), "level": int(level)}
-        except Exception as e:
-            print(e)
-            pass
-
-    def setUserXP(self, user_id, xp) -> None:
-        try:
-            user_id_str = str(user_id)
-            if user_id_str in self.levelsData.keys():
-                self.levelsData[user_id_str]["xp"] = float(str(round(xp, 2)))
-            else:
-                self.levelsData[user_id_str] = {"xp": float(str(round(xp, 2))), "level": self.getUserLevel(user_id)}
-        except Exception as e:
-            print(e)
-            pass
-
-    def getLevelExceptionalRoleMin(self, role_id) -> int | None:
-        res = self.__handleMaps(self.configData.get("leveling", {}))
-        res = self.__handleMaps(res.get("level_limit_exceptions", {}))
-        res = self.__handleMaps(res.get("roles", {}))
-        res = self.__handleMaps(res.get(str(role_id), {}))
-        res = res.get("min_levels", None)
-        if not isinstance(res, int):
-            return None
-        return res
-
-    def getLevelExceptionalRoleMax(self, role_id) -> int | None:
-        res = self.__handleMaps(self.configData.get("leveling", {}))
-        res = self.__handleMaps(res.get("level_limit_exceptions", {}))
-        res = self.__handleMaps(res.get("roles", {}))
-        res = self.__handleMaps(res.get(str(role_id)))
-        res = res.get("max_levels", None)
-        if not isinstance(res, int):
-            return None
-        return res
-
-    def getLevelExceptionalUserMin(self, user_id) -> int | None:
-        res = self.__handleMaps(self.configData.get("leveling", {}))
-        res = self.__handleMaps(res.get("level_limit_exceptions", {}))
-        res = self.__handleMaps(res.get("users", {}))
-        res = self.__handleMaps(res.get(str(user_id), {}))
-        res = res.get("min_levels", None)
-        if not isinstance(res, int):
-            return None
-        return res
-
-    def getLevelExceptionalUserMax(self, user_id) -> int | None:
-        res = self.__handleMaps(self.configData.get("leveling", {}))
-        res = self.__handleMaps(res.get("level_limit_exceptions", {}))
-        res = self.__handleMaps(res.get("users", {}))
-        res = self.__handleMaps(res.get(str(user_id), {}))
-        res = res.get("max_levels", None)
-        if not isinstance(res, int):
-            return None
-        return res
-
-    def getXPPerMessages(self) -> int:
-        res = self.__handleMaps(self.configData.get("leveling", {})).get("give_xp_per_messages", 1)
-        if not isinstance(res, int):
-            return 1
-        return res
-
-    def allLevels(self) -> int:
-        res = self.__handleMaps(self.configData.get("leveling", {})).get("levels", 999999999)
-        if not isinstance(res, int):
-            return 999999999
-        return res
-
-    def getLevelupXPMultiplier(self) -> float:
-        res = self.__handleMaps(self.configData.get("leveling", {}))
-        res = res.get("required_xp_for_levelup_multiplier", 4)
-        if not isinstance(res, int):
-            res = 4
-        return float(str(round(res, 2)))
-
-    def getLevelXP(self, level) -> float:
-        res = self.__handleMaps(self.configData.get("leveling", {}))
-        res = self.__handleMaps(res.get("leveling", {}))
-        default = int(level) * self.getLevelupXPMultiplier()
-        res = res.get("level-" + str(level), default)
-        if not isinstance(res, float) or not isinstance(res, int):
-            return float(str(round(default, 2)))
-        return float(str(round(res, 2)))
 
     def getCommandMessages(self, command_name, message) -> list:
         res = self.__handleMaps(self.messagesData.get("messages", {})).get(message, [])
@@ -501,5 +378,3 @@ class ConfigManager:
 
     def getErrorPathPlaceholder(self):
         return '/error/'
-
-

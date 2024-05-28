@@ -9,45 +9,6 @@
         "Warnings": "warning_cog",
         "Utils": "utils_cog"
     },
-    "warnings": {
-        "warns": 3,
-        "warn-1": {
-            "roles_id": [
-                916359207010312242,
-                999335117279469739
-            ],
-            "send_messages": []
-        },
-        "warn-2": {
-            "roles_id": [
-                916952329591345185
-            ],
-            "send_messages": []
-        },
-        "warn-3": {
-            "roles_id": [
-                916952761483030569
-            ],
-            "send_messages": []
-        }
-    },
-    "leveling": {
-        "max_levels": 99999999,
-        "min_levels": 0,
-        "level_limit_exceptions": {
-            "roles": {
-            },
-            "users": {
-
-            }
-        },
-        "give_xp_per_messages": 10,
-        "required_xp_for_levelup_multiplier": 3.5,
-        "levels": 10,
-        "leveling": {
-            "level-1": 5
-        }
-    },
     "channels": {
         "ready": 990966688142995487
     },
@@ -109,10 +70,11 @@
         "/action:path/",
         "/error_path/"
     ],
+    "print_error_if_original_error_fails": true,
     "command_restriction": {
         "avatar": {
             "all": {"reason": "Everyone can use it", "status": true}
         }
     },
-    "discord_bot_token": "OTYzMTA5ODM0NjE2NjE0OTEy.GI8BdI.F8r5UHljGr239jsWKLOyF5m7hn8xLVClJqvQO8"
+    "discord_bot_token": ""
 }

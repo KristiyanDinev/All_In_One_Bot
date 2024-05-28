@@ -11,7 +11,7 @@ from cogs.ext.config_manager import ConfigManager
 
 configManager = ConfigManager("configs/config", "configs/messages",
                               "configs/warnings",
-                              "configs/commands", "configs/levels")
+                              "configs/commands")
 
 
 def getMemberGuild(guild: discord.Guild, memberId: int) -> discord.Member | None:
