@@ -10,7 +10,8 @@
         "Utils": "utils_cog"
     },
     "channels": {
-        "ready": 990966688142995487
+        "ready": 990966688142995487,
+        "mymessage": 1
     },
     "role_management": {
         "test_role": {
@@ -19,20 +20,8 @@
         }
     },
     "errors": {
-        "on_action": {
-            "actions": []
-        },
-        "on_message": {
-            "actions": []
-        },
-        "on_embed": {
+        "level:mymessage": {
             "actions": ["send_error_message"]
-        },
-        "on_channel": {
-            "actions": []
-        },
-        "on_command": {
-            "actions": []
         }
     },
     "actions": {

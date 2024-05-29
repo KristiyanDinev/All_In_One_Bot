@@ -1,6 +1,6 @@
 {
   "views": {
-    "mymessage": {
+    "mymessage1": {
       "timeout": null,
       "mybutton": {
         "style": "grey",
@@ -14,6 +14,10 @@
       "title": "You have error in your action",
       "fields": {"error":  "/error/", "path":  "/error_path/"}
     },
+    "ready:bot_loads": {
+      "title": "You have error in On Ready Bot Loads",
+      "fields": {"error":  "/error/", "path":  "/error_path/"}
+    }
   },
 
   "messages": {
@@ -28,12 +32,12 @@
     "simple_dm": ["dm from /username/ say /message/"],
     "sync_msg": ["Synced commands /number/"],
     "bot_loads": ["/username/ is online | ID: /number/"],
-    "test_msg": ["Test"],
+    "test_msg": ["Test"]
   },
 
   "channel_messages": {
     "mymessage": {
-      "messages": [],
+      "messages": ["test_msg"],
       "embeds": [],
       "views": []
     },

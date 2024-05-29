@@ -34,7 +34,11 @@ class ConfigManager:
             return {}
 
         with open(file_name + ".json", "r") as jsonfile:
-            return json.load(jsonfile)
+            try:
+                return json.load(jsonfile)
+            except Exception as e:
+                print("Your "+file_name+".json has problems", e)
+                return {}
 
     def reloadConfig(self):
         self.warningsData = self._readJSON(self.warning_path)
@@ -168,11 +172,11 @@ class ConfigManager:
         return dict(self.configData.get("command_restriction", {}).get(command_name, {}))
 
     def getCommandEmbeds(self, command: str, message: str) -> dict | None:
-        res = self.messagesData.get("embed_format", {}).get(message, None)
-        if res is None:
-            return self.getCommandData(command).get("embed_format", {}).get(message, None)
-        else:
+        res = self.__handleMaps(self.messagesData.get("embed_format", {}))
+        res = self.__handleMaps(res.get(message, {}))
+        if len(res.keys()) > 0:
             return res
+        return None
 
     def getMessagesByChannel(self, name: str) -> list:
         res = self.__handleMaps(self.messagesData.get("channel_messages", {}))
@@ -199,8 +203,7 @@ class ConfigManager:
         return res
 
     def getChannelIdByName(self, name: str) -> int:
-        res = self.__handleMaps(self.configData.get("channels", {}))
-        res = res.get(name, 0)
+        res = self.__handleMaps(self.configData.get("channels", {})).get(name, 0)
         if not isinstance(res, int):
             return 0
         return res
@@ -246,6 +249,13 @@ class ConfigManager:
     def getCommandActiveMessages(self, command_name) -> list:
         res = self.getCommandData(command_name).get("message_names", [])
         return res if isinstance(res, list) else []
+
+    def getErrorActions(self, errorPath: str) -> list:
+        res = (self.__handleMaps(self.__handleMaps(self.configData.get("errors", {})).get(errorPath, {}))
+               .get("actions"))
+        if not isinstance(res, list):
+            return list()
+        return res
 
     def getMentionMemberKey(self):
         return "mention_member_arg"

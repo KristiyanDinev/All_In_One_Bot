@@ -9,7 +9,6 @@ import discord
 from discord.ext import commands
 import cogs.ext.utils.utils as utils
 import cogs.ext.utils.messages as messages
-import cogs.ext.utils.placeholders as placeholders_util
 
 
 async def handleActionMessages(interaction: discord.Interaction, messages_names: list, action: str, doing: str):

@@ -3,7 +3,6 @@ import os, sys
 import cogs.ext.utils.utils as utils
 import cogs.ext.utils.messages as messages
 
-
 """
 - ``0x<hex>``
         - ``#<hex>``
@@ -41,7 +40,6 @@ except ImportError:
     except ImportError:
         print("Can't import discord.py! Try to install it.")
         exit()
-
 
 bot = commands.Bot(command_prefix=utils.configManager.getBotPrefix(), intents=discord.Intents.all())
 
@@ -91,28 +89,37 @@ async def on_ready():
     for loc in FindAll("cogs", exclusions=["__init__.py", "cogs\\ext", "cogs\\ext\\utils", "moderator_cog.py"]):
         await bot.load_extension(name=loc)
     print('Bot:', bot.user.name)
-    await messages.handleMessageCtx(None, "on_ready",
-                                    placeholders={utils.configManager.getUsernamePlaceholder(): bot.user.name,
-                                                  utils.configManager.getNumberPlaceholder(): bot.user.id})
+    res = await messages.handleMessage(bot, "on_ready", "on_ready:error",
+                                       placeholders={utils.configManager.getUsernamePlaceholder(): bot.user.name,
+                                                     utils.configManager.getNumberPlaceholder(): bot.user.id},
+                                       interaction=None, ctx=None)
+    print("success" if res else "failed")
 
 
 @bot.command()
 async def sync(ctx):
-    if await messages.handleRestrictedCtx(ctx, "sync"):
+    if await messages.isCommandRestricted(bot, "sync", "sync:error",
+                                          interaction=None, ctx=ctx):
         return
 
     synced = await bot.tree.sync()
-    await messages.handleMessageCtx(ctx, "sync",
-                                    placeholders={utils.configManager.getNumberPlaceholder(): str(len(synced))})
+    res = await messages.handleMessage(bot, "sync", "sync:error",
+                                       placeholders={utils.configManager.getNumberPlaceholder(): str(len(synced))},
+                                       interaction=None, DMUser=None, ctx=ctx)
+    print("success" if res else "failed")
 
 
 @bot.command()
 async def reload(ctx: discord.ext.commands.context.Context):
-    if await messages.handleRestrictedCtx(ctx, "reload"):
+    if await messages.isCommandRestricted(bot, "reload", "reload:error",
+                                          interaction=None, ctx=ctx):
         return
 
     utils.configManager.reloadConfig()
-    await messages.handleMessageCtx(ctx, "reload")
+    res = await messages.handleMessage(bot, "reload", "reload:error",
+                                       placeholders={},
+                                       interaction=None, DMUser=None, ctx=ctx)
+    print("success" if res else "failed")
 
 
 if __name__ == "__main__":
@@ -123,16 +130,10 @@ if __name__ == "__main__":
 
     bot.run(token)
 
-
-
-
-
 # TODO LIST
-# + handle 131 utils.py | add error
 # + Do placeholders
 # + Do errors
 # + continue with actions
-
 
 
 """

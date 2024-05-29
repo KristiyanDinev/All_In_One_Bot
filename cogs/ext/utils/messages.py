@@ -4,11 +4,10 @@ import discord
 from discord.ext import commands
 import cogs.ext.utils.utils as utils
 import cogs.ext.utils.buttons as buttons
-import cogs.ext.utils.leveling as leveling
 import cogs.ext.utils.placeholders as placeholders_util
 
 
-def isEmbedEph(embed, eph) -> bool:
+def isEmbedEph(embed: discord.Embed, eph: str) -> bool:
     return embed is not None and utils.configManager.isActivePlaceholder(eph) and eph in embed.title
 
 
@@ -70,12 +69,12 @@ async def sendResponse(mainData: dict, DMUser: discord.User | None, interaction:
     if len(mainData) == 0:
         raise Exception("No data given")
 
-    if interaction is None and ctx is None:
-        raise Exception("Interaction given")
-
     eph = utils.configManager.getEphPlaceholder()
-    if DMUser is None and interaction is not None:
-        DMUser = interaction.user
+    if DMUser is None:
+        if interaction is not None:
+            DMUser = interaction.user
+        elif ctx is not None:
+            DMUser = ctx.author
 
     for messageName, data in mainData.items():
         messages: list = data.get("messages", [])
@@ -88,6 +87,9 @@ async def sendResponse(mainData: dict, DMUser: discord.User | None, interaction:
         channelButtons: list = data.get("channel_buttons", [])
         channel: discord.TextChannel | None = data.get("channel", None)
         buttonView: discord.ui.View | None = data.get("button", None)
+
+        if interaction is None and ctx is None and channel is None:
+            raise Exception("Expected valid text channel when there is no interaction! for message " + messageName)
 
         await handleMessageResponse(None, embed, None, channel, DMUser,
                                     isEmbedEph(embed, eph), interaction=interaction, ctx=ctx)
@@ -124,34 +126,32 @@ async def sendResponse(mainData: dict, DMUser: discord.User | None, interaction:
                                         buttonView.is_active_placeholder, interaction=interaction, ctx=ctx)
 
 
-def MainBuild(commandName: str, executionPath: str, placeholders: dict, interaction: discord.Interaction = None,
-              ctx: discord.ext.commands.context.Context | None = None):
+async def MainBuild(bot: commands.Bot, commandName: str, executionPath: str, placeholders: dict,
+                    interaction: discord.Interaction | None = None,
+                    ctx: discord.ext.commands.context.Context | None = None):
+    if bot is None:
+        if interaction is not None:
+            bot = interaction.client
+        elif ctx is not None:
+            bot = ctx.bot
     placeholders = placeholders_util.addDefaultPlaceholder(placeholders,
                                                            interaction=interaction, ctx=ctx)
     multiMessage = dict()
-    bot = interaction.client if interaction is not None else ctx.bot
     allMessages = utils.configManager.getCommandData(commandName).get("message_names", [])
     if not isinstance(allMessages, list):
         raise Exception("`message_names` is not a list! Expected a list.")
     for msg in allMessages:
+        print(msg)
         message: list = buildMessageData(commandName, msg, placeholders)
-        (DM, DMEmbeds, DMButtons) = buildDMData(bot, commandName, msg, placeholders)
-
-        if interaction is not None:
-            (builtChannelEmbeds, builtChannelMessages, channel, builtChannelButtons) = (
-                buildChannelData(commandName, msg, placeholders, executionPath, None, interaction=interaction, ctx=ctx))
-
-        elif ctx is not None:
-            (builtChannelEmbeds, builtChannelMessages, channel, builtChannelButtons) = (
-                buildChannelData(commandName, msg, placeholders, executionPath, None, interaction=interaction, ctx=ctx))
-
-        else:
-            (builtChannelEmbeds, builtChannelMessages, channel, builtChannelButtons) = (
-                buildChannelData(commandName, msg, placeholders, executionPath, None, interaction=interaction, ctx=ctx))
+        (DM, DMEmbeds, DMButtons) = await buildDMData(bot, commandName, msg, executionPath, placeholders,
+                                                      interaction=interaction, ctx=ctx)
+        (builtChannelEmbeds, builtChannelMessages, channel, builtChannelButtons) = (
+            await buildChannelData(bot, commandName, msg, placeholders, executionPath,
+                                   None, interaction=interaction, ctx=ctx))
 
         multiMessage[msg] = {"messages": message,
-                             "embed": buildEmbed(commandName, msg, executionPath, placeholders,
-                                                 None, interaction=interaction, ctx=ctx),
+                             "embed": await buildEmbed(bot, commandName, msg, executionPath, placeholders,
+                                                       None, interaction=interaction, ctx=ctx),
                              "dm_messages": DM,
                              "dm_embeds": DMEmbeds,
                              "dm_buttons": DMButtons,
@@ -164,33 +164,45 @@ def MainBuild(commandName: str, executionPath: str, placeholders: dict, interact
     return multiMessage
 
 
-async def isCommandRestricted(commandName: str, executionPath: str, interaction: discord.Interaction | None = None,
+async def isCommandRestricted(bot: commands.Bot, commandName: str, executionPath: str,
+                              interaction: discord.Interaction | None = None,
                               ctx: discord.ext.commands.context.Context | None = None) -> bool:
-    if interaction is not None:
-        reason = utils.isUserRestricted(interaction, commandName)
-    elif ctx is not None:
-        reason = utils.isUserRestrictedCtx(ctx, commandName)
-    else:
+    if bot is None:
+        if interaction is not None:
+            bot = interaction.client
+        elif ctx is not None:
+            bot = ctx.bot
+
+    if interaction is None and ctx is None:
         reason = ""
+    else:
+        reason = await utils.isUserRestricted(bot, commandName, executionPath, interaction=interaction, ctx=ctx)
     if len(reason.replace(" ", "")) > 0:
-        return await handleMessage(commandName, executionPath, DMUser=None,
+        return await handleMessage(bot, commandName, executionPath, DMUser=None,
                                    placeholders={utils.configManager.getReasonPlaceholder(): reason},
                                    interaction=interaction, ctx=ctx)
     return False
 
 
-async def buildChannelData(commandName: str, msg: str, placeholders: dict, executionPath: str, error,
-                           interaction: discord.Interaction = None,
+async def buildChannelData(bot: commands.Bot, commandName: str, message: str, placeholders: dict, executionPath: str,
+                           error,
+                           interaction: discord.Interaction | None = None,
                            ctx: discord.ext.commands.context.Context | None = None) -> tuple:
-    bot = interaction.client if interaction is not None else ctx.bot
-    channelMessages: list = utils.configManager.getMessagesByChannel(msg).copy()
-    channelEmbeds: list = utils.configManager.getEmbedsByChannel(msg).copy()
-    channelButtons: list = utils.configManager.getButtonsByChannel(msg).copy()
+    if bot is None:
+        if interaction is not None:
+            bot = interaction.client
+        elif ctx is not None:
+            bot = ctx.bot
+        else:
+            return (None, None, None, None)
+    channelMessages: list = utils.configManager.getMessagesByChannel(message).copy()
+    channelEmbeds: list = utils.configManager.getEmbedsByChannel(message).copy()
+    channelButtons: list = utils.configManager.getButtonsByChannel(message).copy()
     builtChannelEmbeds = []
     if len(channelEmbeds) > 0:
         for EmbedName in channelEmbeds:
-            embed = buildEmbed(commandName, EmbedName, executionPath, placeholders, error,
-                               interaction=interaction, ctx=ctx)
+            embed = await buildEmbed(bot, commandName, EmbedName, executionPath, placeholders, error,
+                                     interaction=interaction, ctx=ctx)
             if embed is not None:
                 builtChannelEmbeds.append(embed.copy())
 
@@ -207,7 +219,7 @@ async def buildChannelData(commandName: str, msg: str, placeholders: dict, execu
             if button is not None:
                 builtChannelButtons.append(button)
 
-    channelId: int = utils.configManager.getChannelIdByName(msg)
+    channelId: int = utils.configManager.getChannelIdByName(message)
     channel: discord.abc.GuildChannel | None = bot.get_channel(channelId)
     if channel is None:
         if interaction is not None:
@@ -218,7 +230,7 @@ async def buildChannelData(commandName: str, msg: str, placeholders: dict, execu
         return (builtChannelEmbeds, builtChannelMessages, channel, builtChannelButtons)
 
     if error is None:
-        await handleError(commandName, executionPath, "Text channel expected", placeholders=placeholders,
+        await handleError(bot, commandName, executionPath, "Text channel expected", placeholders=placeholders,
                           interaction=interaction, ctx=ctx)
     else:
         raise Exception("Text channel expected")
@@ -234,7 +246,14 @@ def buildMessageData(commandName: str, msg: str, placeholders: dict) -> list:
     return message
 
 
-def buildDMData(bot: commands.Bot, command: str, msg: str, placeholders: dict) -> tuple:
+async def buildDMData(bot: commands.Bot, command: str, msg: str, executionPath: str, placeholders: dict,
+                      interaction: discord.Interaction | None = None,
+                      ctx: discord.ext.commands.context.Context | None = None) -> tuple:
+    if bot is None:
+        if interaction is not None:
+            bot = interaction.client
+        elif ctx is not None:
+            bot = ctx.bot
     DM: list = utils.configManager.getDMMessages(msg).copy()
     builtDMMessages = []
     if len(DM) > 0:
@@ -246,7 +265,8 @@ def buildDMData(bot: commands.Bot, command: str, msg: str, placeholders: dict) -
     builtDMEmbeds = []
     if len(DMEmbeds) > 0:
         for embedName in DMEmbeds:
-            embed = buildEmbed(command, embedName, placeholders)
+            embed = await buildEmbed(bot, command, embedName, executionPath, placeholders, None,
+                                     interaction=interaction, ctx=ctx)
             if embed is not None:
                 builtDMEmbeds.append(embed.copy())
 
@@ -261,20 +281,28 @@ def buildDMData(bot: commands.Bot, command: str, msg: str, placeholders: dict) -
     return (builtDMMessages, builtDMEmbeds, builtDMButtons)
 
 
+async def MainBuildError(bot: commands.Bot, commandName: str, errorPath: str, error,
+                         placeholders: dict, interaction: discord.Interaction = None,
+                         ctx: discord.ext.commands.context.Context | None = None):
+    if bot is None:
+        if interaction is not None:
+            bot = interaction.client
+        elif ctx is not None:
+            bot = ctx.bot
 
-def MainBuildError(commandName: str, errorPath: str, error,
-                   placeholders: dict, interaction: discord.Interaction = None,
-                   ctx: discord.ext.commands.context.Context | None = None):
-    bot = interaction.client if interaction is not None else ctx.bot
     if len(errorPath.replace(" ", "")) > 0:
         message: list = buildMessageData(commandName, errorPath, placeholders)
-        (DM, DMEmbeds, DMButtons) = buildDMData(bot, commandName, errorPath, placeholders)
+        (DM, DMEmbeds, DMButtons) = await buildDMData(bot, commandName, errorPath, errorPath, placeholders,
+                                                      interaction=interaction, ctx=ctx)
         (builtChannelEmbeds, builtChannelMessages, channel, builtChannelButtons) = (
-            buildChannelData(commandName, errorPath, placeholders, errorPath, error, interaction=interaction, ctx=ctx))
+            await buildChannelData(bot, commandName, message=errorPath, placeholders=placeholders,
+                                   executionPath=errorPath,
+                                   error=error,
+                                   interaction=interaction, ctx=ctx))
 
         return {errorPath: {"messages": message,
-                            "embed": buildEmbed(commandName, errorPath, errorPath, placeholders, error,
-                                                interaction=interaction, ctx=ctx),
+                            "embed": await buildEmbed(bot, commandName, errorPath, errorPath, placeholders, error,
+                                                      interaction=interaction, ctx=ctx),
                             "dm_messages": DM,
                             "dm_embeds": DMEmbeds,
                             "dm_buttons": DMButtons,
@@ -286,78 +314,77 @@ def MainBuildError(commandName: str, errorPath: str, error,
     return dict()
 
 
-async def buildEmbed(command: str, message_key: str, executionPath: str, placeholders: dict, error,
+async def buildEmbed(bot: commands.Bot, command: str, message_key: str, executionPath: str, placeholders: dict, error,
                      interaction: discord.Interaction | None = None,
-                     ctx: discord.ext.commands.context.Context | None = None, ) -> discord.Embed | None:
+                     ctx: discord.ext.commands.context.Context | None = None) -> discord.Embed | None:
     try:
-        data: dict = utils.configManager.getCommandEmbeds(command, message_key)
-        title: str = str(data.get(utils.configManager.getEmbedTitle(), utils.configManager.getEmbedTitle()))
-        authorName: str = str(
-            data.get(utils.configManager.getEmbedAuthorName(), utils.configManager.getEmbedAuthorName()))
-        authorUrl: str = str(
-            data.get(utils.configManager.getEmbedAuthorUrl(), utils.configManager.getEmbedAuthorUrl()))
-        authorIconUrl: str = str(
-            data.get(utils.configManager.getEmbedAuthorIconUrl(), utils.configManager.getEmbedAuthorIconUrl()))
-        footerText: str = str(data.get(utils.configManager.getEmbedFooter(), utils.configManager.getEmbedFooter()))
-        footerIconUrl: str = str(
-            data.get(utils.configManager.getEmbedFooterIconUrl(), utils.configManager.getEmbedFooterIconUrl()))
-        imageUrl: str = str(data.get(utils.configManager.getEmbedImageUrl(), utils.configManager.getEmbedImageUrl()))
-        desc: str = str(data.get(utils.configManager.getEmbedDescription(), utils.configManager.getEmbedDescription()))
-        colour: str = str(data.get(utils.configManager.getEmbedColor(), utils.configManager.getEmbedColor()))
+        data: dict | None = utils.configManager.getCommandEmbeds(command, message_key)
+        if data is None:
+            return None
 
-        title = placeholders_util.usePlaceholders(title, placeholders)
-        authorName = placeholders_util.usePlaceholders(authorName, placeholders)
-        authorUrl = placeholders_util.usePlaceholders(authorUrl, placeholders)
-        authorIconUrl = placeholders_util.usePlaceholders(authorIconUrl, placeholders)
-        footerText = placeholders_util.usePlaceholders(footerText, placeholders)
-        footerIconUrl = placeholders_util.usePlaceholders(footerIconUrl, placeholders)
-        imageUrl = placeholders_util.usePlaceholders(imageUrl, placeholders)
-        desc = placeholders_util.usePlaceholders(desc, placeholders)
+        embed = discord.Embed()
+        for key, value in data.items():
+            if key == utils.configManager.getEmbedTitle():
+                embed.title = placeholders_util.usePlaceholders(value, placeholders)
+            elif key == utils.configManager.getEmbedAuthorName():
+                embed.author.name = placeholders_util.usePlaceholders(value, placeholders)
+            elif key == utils.configManager.getEmbedAuthorUrl():
+                embed.author.url = placeholders_util.usePlaceholders(value, placeholders)
+            elif key == utils.configManager.getEmbedAuthorIconUrl():
+                embed.author.icon_url = placeholders_util.usePlaceholders(value, placeholders)
+            elif key == utils.configManager.getEmbedFooter():
+                embed.footer.text = placeholders_util.usePlaceholders(value, placeholders)
+            elif key == utils.configManager.getEmbedFooterIconUrl():
+                embed.footer.icon_url = placeholders_util.usePlaceholders(value, placeholders)
+            elif key == utils.configManager.getEmbedImageUrl():
+                embed.image.url = placeholders_util.usePlaceholders(value, placeholders)
+            elif key == utils.configManager.getEmbedDescription():
+                embed.description = placeholders_util.usePlaceholders(value, placeholders)
+            elif key == utils.configManager.getEmbedColor():
+                value = placeholders_util.usePlaceholders(value, placeholders)
+                embed.colour = discord.Colour.random() \
+                    if value == "random" or len(value) == 0 \
+                    else discord.Colour.from_str(value)
+            elif key == utils.configManager.getEmbedFields():
+                notinlinePlaceholder = utils.configManager.getNotInLinePlaceholder()
+                if not isinstance(value, dict):
+                    raise Exception("Embed " + message_key +
+                                    " needs fields as map: Example (" + notinlinePlaceholder +
+                                    " placeholder is optional): " +
+                                    "'" + utils.configManager.getEmbedFields() + "': {'FieldName': 'FieldValue " +
+                                    notinlinePlaceholder + "'}")
+                for k, v in data.get(utils.configManager.getEmbedFields()).items():
+                    if notinlinePlaceholder in v and utils.configManager.isActivePlaceholder(notinlinePlaceholder):
+                        embed.add_field(name=k, value=v, inline=False)
+                    else:
+                        embed.add_field(name=k, value=v)
 
-        embed = discord.Embed(title=title,
-                              colour=discord.Colour.random()
-                              if colour == "random" or len(colour) == 0 else discord.Colour.from_str(colour),
-                              description=desc)
-
-        embed.set_author(name=authorName,
-                         url=authorUrl,
-                         icon_url=authorIconUrl)
-
-        embed.set_footer(text=footerText,
-                         icon_url=footerIconUrl)
-
-        embed.set_image(url=imageUrl)
-
-        for k, v in data.get(utils.configManager.getEmbedFields()).items():
-            notinlinePlaceholder = utils.configManager.getNotInLinePlaceholder()
-            if notinlinePlaceholder in v and utils.configManager.isActivePlaceholder(notinlinePlaceholder):
-                embed.add_field(name=k, value=v, inline=False)
-            else:
-                embed.add_field(name=k, value=v)
-
-        return embed.copy()
+        return embed
 
     except Exception as e:
         if error is None:
-            await handleError(command, executionPath, e, placeholders=placeholders, interaction=interaction, ctx=ctx)
+            await handleError(bot, command, executionPath, e, placeholders=placeholders,
+                              interaction=interaction, ctx=ctx)
         else:
             raise Exception(e)
         return None
 
 
-async def handleMessage(commandName: str, executionPath: str, placeholders: dict = dict(),
+async def handleMessage(bot: commands.Bot, commandName: str, executionPath: str, placeholders: dict = dict(),
                         DMUser: discord.User | None = None,
                         interaction: discord.Interaction | None = None,
                         ctx: discord.ext.commands.context.Context | None = None) -> bool:
     try:
-        await sendResponse(MainBuild(commandName, placeholders, interaction=interaction, ctx=ctx),
-                           DMUser, interaction=interaction, ctx=ctx)
+        await sendResponse(await MainBuild(bot, commandName, executionPath=executionPath, placeholders=placeholders,
+                                           interaction=interaction, ctx=ctx), DMUser=DMUser, interaction=interaction,
+                           ctx=ctx)
+        return True
     except Exception as e:
-        return await handleError(commandName, executionPath, e, placeholders=placeholders,
+        return await handleError(bot, commandName, executionPath, e, placeholders=placeholders,
                                  interaction=interaction, ctx=ctx)
 
 
-async def handleError(commandName: str, executionPath: str, error, placeholders: dict = dict(),
+async def handleError(bot: commands.Bot, commandName: str, executionPath: str, error, placeholders: dict = dict(),
                       interaction: discord.Interaction | None = None,
                       ctx: discord.ext.commands.context.Context | None = None) -> bool:
     if error is not None:
@@ -365,7 +392,8 @@ async def handleError(commandName: str, executionPath: str, error, placeholders:
         placeholders[utils.configManager.getErrorPathPlaceholder()] = executionPath
         try:
             await sendResponse(
-                MainBuildError(commandName, executionPath, error, placeholders, interaction=interaction, ctx=ctx),
+                await MainBuildError(bot, commandName, executionPath, error, placeholders,
+                                     interaction=interaction, ctx=ctx),
                 DMUser=None)
             return True
         except Exception as ex:
@@ -374,30 +402,34 @@ async def handleError(commandName: str, executionPath: str, error, placeholders:
             return False
 
 
-async def handleInvalidMember(command: str, executionPath: str, error, interaction: discord.Interaction | None = None,
+async def handleInvalidMember(bot: commands.Bot, command: str, executionPath: str, error,
+                              interaction: discord.Interaction | None = None,
                               ctx: discord.ext.commands.context.Context | None = None) -> bool:
-    return await handleError(command, executionPath, error,
+    return await handleError(bot, command, executionPath, error,
                              placeholders={
                                  utils.configManager.getInvalidUsernamePlaceholder(): error},
                              interaction=interaction, ctx=ctx)
 
 
-async def handleInvalidRole(command: str, executionPath: str, error, interaction: discord.Interaction | None = None,
+async def handleInvalidRole(bot: commands.Bot, command: str, executionPath: str, error,
+                            interaction: discord.Interaction | None = None,
                             ctx: discord.ext.commands.context.Context | None = None) -> bool:
-    return await handleError(command, executionPath, error,
+    return await handleError(bot, command, executionPath, error,
                              placeholders={utils.configManager.getInvalidUsernamePlaceholder(): error},
                              interaction=interaction, ctx=ctx)
 
 
-async def handleInvalidArg(command: str, executionPath: str, error, interaction: discord.Interaction | None = None,
+async def handleInvalidArg(bot: commands.Bot, command: str, executionPath: str, error,
+                           interaction: discord.Interaction | None = None,
                            ctx: discord.ext.commands.context.Context | None = None) -> bool:
-    return await handleError(command, executionPath, error,
+    return await handleError(bot, command, executionPath, error,
                              placeholders={utils.configManager.getInvalidArgumentPlaceholder(): error},
                              interaction=interaction, ctx=ctx)
 
 
-async def handleInvalidChannels(command: str, executionPath: str, error, interaction: discord.Interaction | None = None,
+async def handleInvalidChannels(bot: commands.Bot, command: str, executionPath: str, error,
+                                interaction: discord.Interaction | None = None,
                                 ctx: discord.ext.commands.context.Context | None = None) -> bool:
-    return await handleError(command, executionPath, error,
+    return await handleError(bot, command, executionPath, error,
                              placeholders={utils.configManager.getInvalidChannelPlaceholder(): error},
                              interaction=interaction, ctx=ctx)

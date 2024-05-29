@@ -51,7 +51,7 @@ class TempView(discord.ui.View):
 
 
 def buildButtonData(bot: commands.Bot, msg: str, placeholders: dict) -> discord.ui.View | None:
-    if not utils.configManager.hasButton(msg):
+    if not utils.configManager.hasButton(msg) or bot is None:
         return None
 
     eph = utils.configManager.getEphPlaceholder()

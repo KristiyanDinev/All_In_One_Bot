@@ -8,6 +8,7 @@ from discord.ext import commands
 from discord import Role
 
 from cogs.ext.config_manager import ConfigManager
+import cogs.ext.utils.messages as messages
 
 configManager = ConfigManager("configs/config", "configs/messages",
                               "configs/warnings",
@@ -123,13 +124,23 @@ def getWarningRolesFromLevel(interaction: discord.Interaction, level: int) -> Li
     return warningRoles
 
 
-def isUserRestricted(interaction: discord.Interaction, commandName: str) -> str:
+async def isUserRestricted(bot: commands.Bot, commandName: str, executionPath: str,
+                           interaction: discord.Interaction | None = None,
+                           ctx: discord.ext.commands.context.Context | None = None) -> str:
     res = configManager.getCommandRestrictions(commandName)
     reason = ""
 
     for option, data in res.items():
         if not isinstance(data, dict):
-            continue
+            res = await messages.handleError(bot, commandName, executionPath,
+                                             "Expected map in command restrictions, but got type " + str(type(data)),
+                                             placeholders=dict(),
+                                             interaction=interaction, ctx=ctx)
+            if res:
+                continue
+            else:
+                reason += "Expected map in command restrictions, but got type " + str(type(data))
+                break
         dataReason = data.get("reason", "")
         userRoleId: list = getRoleIdFromRoles(interaction.user.roles)
         status = data.get("status", [])
@@ -138,40 +149,17 @@ def isUserRestricted(interaction: discord.Interaction, commandName: str) -> str:
                 return reason
             else:
                 reason += dataReason
-        elif option == "users_id" and isinstance(status, list) and interaction.user.id not in status:
+        elif (option == "users_id" and isinstance(status, list) and
+              (interaction.user.id if interaction is not None else ctx.author.id) not in status):
             reason += dataReason
         elif option == "any_roles_id" and isinstance(status, list) and anyRolesContains(status, userRoleId):
             reason += dataReason
         elif option == "all_roles_id" and isinstance(status, list) and allRolesContains(status, userRoleId):
             reason += dataReason
-        elif option == "channels_id" and isinstance(status, list) and interaction.channel.id not in status:
+        elif (option == "channels_id" and isinstance(status, list) and
+              (interaction.channel.id if interaction is not None else ctx.channel.id) not in status):
             reason += dataReason
 
-    return reason
-
-
-def isUserRestrictedCtx(ctx: discord.ext.commands.context.Context, commandName: str) -> str:
-    res = configManager.getCommandRestrictions(commandName)
-    reason = ""
-    for option, data in res.items():
-        if not isinstance(data, dict):
-            continue
-        dataReason = data.get("reason", "")
-        userRoleId: list = getRoleIdFromRoles(ctx.author.roles)
-        status = data.get("status", [])
-        if option == "all":
-            if bool(data.get("status", True)):
-                return reason
-            else:
-                reason += dataReason
-        elif option == "users_id" and isinstance(status, list) and ctx.author.id not in status:
-            reason += dataReason
-        elif option == "any_roles_id" and isinstance(status, list) and anyRolesContains(status, userRoleId):
-            reason += dataReason
-        elif option == "all_roles_id" and isinstance(status, list) and allRolesContains(status, userRoleId):
-            reason += dataReason
-        elif option == "channels_id" and isinstance(status, list) and ctx.channel.id not in status:
-            reason += dataReason
     return reason
 
 
@@ -922,7 +910,8 @@ def getChannels(channelData: dict, guild: discord.Guild) -> list:
 
     for i in range(len(channels)):
         channel = channels[i]
-        if not (channel.category is not None and (channel.category.id in category_id or channel.category.name in category_name)):
+        if not (channel.category is not None and (
+                channel.category.id in category_id or channel.category.name in category_name)):
             channels.pop(i)
     return channels
 
@@ -1046,8 +1035,9 @@ async def createChannel(channelData: dict, guild: discord.Guild) -> list:
     return createdChannels
 
 
-async def deleteChannel(channel: Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel],
-                        reason: str = "") -> bool:
+async def deleteChannel(
+        channel: Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel],
+        reason: str = "") -> bool:
     try:
         await channel.delete(reason=reason)
         return True
@@ -1055,7 +1045,8 @@ async def deleteChannel(channel: Union[discord.TextChannel, discord.VoiceChannel
         return False
 
 
-def getChannelData(channel: Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel]) -> dict:
+def getChannelData(
+        channel: Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel]) -> dict:
     data: dict = dict()
     data["name"] = channel.name
     data["permissions"] = getPermissionsDataFromMapping(channel.overwrites)
@@ -1091,7 +1082,8 @@ def getChannelData(channel: Union[discord.TextChannel, discord.VoiceChannel, dis
 
 
 async def editChannel(channelData: dict,
-                      channel: Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel]) -> bool:
+                      channel: Union[
+                          discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel]) -> bool:
     try:
         channelDataCopy = channelData.copy()
         channelDataCopy["category_name"] = channelDataCopy.pop("new_category_name")
@@ -1188,4 +1180,3 @@ async def editChannel(channelData: dict,
         return True
     except Exception:
         return False
-
