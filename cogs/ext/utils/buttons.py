@@ -21,7 +21,7 @@ class ViewButton(discord.ui.Button):
             self.actionData[action] = utils.configManager.getActionData(action).copy()
 
     async def callback(self, interaction: discord.Interaction):
-        await actions.handleAllActions(self.actionData, interaction)
+        await actions.handleAllActions(self.bot, self.actionData, interaction)
 
 
 class TempView(discord.ui.View):

@@ -14,8 +14,8 @@
       "title": "You have error in your action",
       "fields": {"error":  "/error/", "path":  "/error_path/"}
     },
-    "ready:bot_loads": {
-      "title": "You have error in On Ready Bot Loads",
+    "sync:mymessage": {
+      "title": "You have error in Sync command",
       "fields": {"error":  "/error/", "path":  "/error_path/"}
     }
   },

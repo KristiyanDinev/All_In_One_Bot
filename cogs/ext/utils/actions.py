@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Any
 
 import discord
 from discord.ext import commands
@@ -11,57 +11,98 @@ import cogs.ext.utils.utils as utils
 import cogs.ext.utils.messages as messages
 
 
-async def handleActionMessages(interaction: discord.Interaction, messages_names: list, action: str, doing: str):
+async def handleActionMessages(interaction: discord.Interaction, messages_names: list, commandName: str,
+                               executionPath: str) -> dict:
     # action = name of the action
     # doing = messages
+    statusData: dict = {}
     for msg in messages_names:
-        await messages.handleMessage(interaction, msg, DMUser=interaction.user,
-                                     placeholders={utils.configManager.getActionPathPlaceholder(): action+":"+doing})
+        messageData: dict = await messages.handleMessage(interaction.client, commandName, executionPath,
+                                                         singleMessage=msg,
+                                                         placeholders={
+                                                             utils.configManager.getActionPathPlaceholder(): executionPath},
+                                                         interaction=interaction)
+        statusData.update(messageData)
+        if not messageData["message"]:
+            return statusData
+    return statusData
 
 
 async def handleCogCommandExecution(cog: commands.Cog, interaction: discord.Interaction,
                                     commandName: str,
-                                    command: discord.app_commands.commands.ContextMenu, finalArgs: list):
+                                    command: discord.app_commands.commands.ContextMenu, finalArgs: list,
+                                    executionPath: str) -> dict:
+    commandData: dict = {"executed": False}
     for co in cog.get_app_commands():
         if co.name == commandName:
             try:
                 await command.callback(cog, interaction, *finalArgs)
             except Exception as e:
-                await messages.handleErrors(interaction.client, interaction, commandName, e)
-            break
+                commandData["executed"] = False
+                commandData.update(await messages.handleError(interaction.client, commandName, executionPath, e,
+                                                              placeholders={}, interaction=interaction))
+            finally:
+                commandData["executed"] = True
+            return commandData
+    return commandData
 
 
-async def handleActionCommands(interaction: discord.Interaction, commandsData: dict):
+def startBackgroundTask(**taskArgs):
+    async def wait(taskArgs: dict):
+        try:
+            await asyncio.sleep(taskArgs["duration"])
+            await taskArgs["function"](*taskArgs["functionArgs"])
+        except Exception as e:
+            interaction = taskArgs["interaction"]
+            if not interaction.is_expired():
+                await messages.handleError(taskArgs["bot"], taskArgs["commandName"], taskArgs["executedPath"], e,
+                                           placeholders={}, interaction=interaction)
+
+    threading.Thread(target=utils.separateThread, args=(asyncio.get_running_loop(), wait, taskArgs),
+                     daemon=True).start()
+
+
+async def handleActionCommands(interaction: discord.Interaction, commandsData: dict, executedPath: str) -> dict:
+    # command: {command status}
+    commandsExecutionData: dict = dict()
     for command in commandsData.keys():
         comm: discord.app_commands.commands.ContextMenu | None = interaction.client.tree.get_command(command)
         if comm is not None:
-            final_args = []
-            for arg in commandsData.get(command):
-                final_args.append(arg)
+            args = commandsData.get(command, [])
+            if not isinstance(args, list):
+                args = []
 
             for name, file_name in utils.configManager.getCogData().items():
                 cog: commands.Cog = interaction.client.get_cog(name)
-                executed = False
+                found = False
                 for cogCommand in cog.get_app_commands():
                     if cogCommand.name == comm.name:
                         try:
                             await interaction.client.load_extension(f"cogs.{file_name}")
                         except commands.ExtensionAlreadyLoaded:
-                            await handleCogCommandExecution(cog, interaction, command, comm, final_args)
-                        executed = True
+                            commandsExecutionData[comm] = await handleCogCommandExecution(cog, interaction, comm.name,
+                                                                                          comm, args, executedPath)
+                        found = True
                         break
-                if executed:
+                if found:
                     break
+    return commandsExecutionData
 
 
-async def handleUser(interaction: discord.Interaction, userData: dict):
+async def handleUser(interaction: discord.Interaction, userData: dict, bot: commands.Bot, commandName: str,
+                     executedPath: str) -> dict:
+    userStatus: dict = dict()
     for userDo in userData.keys():
+        userStatus[userDo] = dict()
         userDoData: dict = userData.get(userDo, {})
-        if isinstance(userDoData, dict):
+        userStatus[userDo]["action_user_data"] = dict()
+        if not isinstance(userDoData, dict):
             continue
+        userStatus[userDo]["action_user_data"] = userDoData
         duration: int = int(userDoData.get("duration", -1))
-        loop = asyncio.get_running_loop()
         user = interaction.user
+        userStatus[userDo]["involved_user_name"] = user.name
+        userStatus[userDo]["involved_user_id"] = user.id
         users: list = utils.getUsers(userDoData, interaction.guild)
         roles: list = utils.getRoles(userDoData, interaction.guild)
         reason = str(userDoData.get("reason", ""))
@@ -76,16 +117,10 @@ async def handleUser(interaction: discord.Interaction, userData: dict):
                 if res:
                     usersBanned.append(resUser)
             if duration > 0:
-                async def wait(duration2: int, unbanReason: str, userD: discord.Member):
-                    try:
-                        await asyncio.sleep(duration2)
-                        await utils.unbanUser(userD, reason=unbanReason)
-                    except Exception:
-                        pass
-
-                threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                    str(userDoData.get("unban_reason", "")),
-                                                                    usersBanned), daemon=True).start()
+                startBackgroundTask(function=utils.unbanUser,
+                                    functionArgs=[user, str(userDoData.get("unban_reason", ""))],
+                                    bot=bot, interaction=interaction, commandName=commandName, duration=duration,
+                                    executedPath=executedPath)
         elif userDo == "unban":
             usersUnbanned: list = []
             if bool(userDoData.get("interact_both", True)):
@@ -281,6 +316,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict):
                 threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
                                                                     str(userDoData.get("mute_reason", "")),
                                                                     removeMutedMembers), daemon=True).start()
+    return userStatus
 
 
 async def handleGuild(interaction: discord.Interaction, guildData: dict):
@@ -559,17 +595,43 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                     pass
 
 
-async def handleAllActions(actionData: dict, interaction: discord.Interaction):
+async def handleAllActions(bot: commands.Bot, actionData: dict, interaction: discord.Interaction) -> dict:
+    resultData: dict = dict()
     for action in actionData.keys():
+        resultData[action] = dict()
         for doing in actionData.get(action).keys():
+            resultData[action][doing] = dict()
+            executionPath = action + "/" + doing
+            resultData[action][doing]["execution_path"] = executionPath
             if doing == "messages":
-                await handleActionMessages(interaction, list(actionData.get(action, {}).get(doing, [])).copy(), action, doing)
+                resultData[action][doing]["status"] = await handleActionMessages(interaction,
+                                                                                 list(actionData.get(action, {})
+                                                                                      .get(doing, [])).copy(),
+                                                                                 action, executionPath)
 
             elif doing == "commands":
-                await handleActionCommands(interaction, dict(actionData.get(action, {}).get(doing, {})).copy(), action, doing)
+                resultData[action][doing]["status"] = await handleActionCommands(interaction,
+                                                                                 dict(actionData.get(action, {})
+                                                                                      .get(doing, {})).copy(),
+                                                                                 executionPath)
 
             elif doing == "user":
-                await handleUser(interaction, dict(actionData.get(action, {}).get(doing, {})).copy(), action, doing)
+                resultData[action][doing]["status"] = await handleUser(interaction,
+                                                                       dict(actionData.get(action, {})
+                                                                            .get(doing, {})).copy(),
+                                                                       bot, action, executionPath)
 
             elif doing == "guild":
-                await handleGuild(interaction, dict(actionData.get(action, {}).get(doing, {})).copy(), action, doing)
+                resultData[action][doing]["status"] = await handleGuild(interaction,
+                                                                        dict(actionData.get(action, {})
+                                                                             .get(doing, {})).copy(),
+                                                                        action, doing)
+    return resultData
+
+
+async def handleErrorActions(bot: commands.Bot, errorPath: str, interaction: discord.Interaction) -> dict:
+    # 'idk' -> {'messages' : [....]}
+    actionData: dict = dict()
+    for action in utils.configManager.getErrorActions(errorPath):
+        actionData[action] = utils.configManager.getActionData(action).copy()
+    return await handleAllActions(bot, actionData, interaction)

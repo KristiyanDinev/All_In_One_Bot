@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Mapping, Union
+from typing import List, Mapping, Union, Any
 import requests as rq
 import asyncio
 import discord
@@ -268,12 +268,12 @@ async def banUser(member: discord.Member, reason: str = "") -> bool:
         return False
 
 
-async def unbanUser(member: discord.Member, reason: str = "") -> bool:
+async def unbanUser(member: discord.Member, reason: str = "") -> Any:
     try:
         await member.unban(reason=reason)
         return True
-    except Exception:
-        return False
+    except Exception as e:
+        return e
 
 
 async def kickUser(member: discord.Member, reason: str = "") -> bool:

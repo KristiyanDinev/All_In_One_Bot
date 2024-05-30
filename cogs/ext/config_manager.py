@@ -38,7 +38,7 @@ class ConfigManager:
                 return json.load(jsonfile)
             except Exception as e:
                 print("Your "+file_name+".json has problems", e)
-                return {}
+                exit()
 
     def reloadConfig(self):
         self.warningsData = self._readJSON(self.warning_path)
