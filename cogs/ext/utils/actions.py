@@ -32,34 +32,20 @@ async def handleCogCommandExecution(cog: commands.Cog, interaction: discord.Inte
                                     commandName: str,
                                     command: discord.app_commands.commands.ContextMenu, finalArgs: list,
                                     executionPath: str) -> dict:
-    commandData: dict = {"executed": False}
+    commandData: dict = {"executed": False, "execution_error": {}}
     for co in cog.get_app_commands():
         if co.name == commandName:
             try:
                 await command.callback(cog, interaction, *finalArgs)
             except Exception as e:
                 commandData["executed"] = False
-                commandData.update(await messages.handleError(interaction.client, commandName, executionPath, e,
-                                                              placeholders={}, interaction=interaction))
+                commandData["execution_error"] = await messages.handleError(interaction.client, commandName,
+                                                                            executionPath, e,
+                                                                            placeholders={}, interaction=interaction)
             finally:
                 commandData["executed"] = True
             return commandData
     return commandData
-
-
-def startBackgroundTask(**taskArgs):
-    async def wait(taskArgs: dict):
-        try:
-            await asyncio.sleep(taskArgs["duration"])
-            await taskArgs["function"](*taskArgs["functionArgs"])
-        except Exception as e:
-            interaction = taskArgs["interaction"]
-            if not interaction.is_expired():
-                await messages.handleError(taskArgs["bot"], taskArgs["commandName"], taskArgs["executedPath"], e,
-                                           placeholders={}, interaction=interaction)
-
-    threading.Thread(target=utils.separateThread, args=(asyncio.get_running_loop(), wait, taskArgs),
-                     daemon=True).start()
 
 
 async def handleActionCommands(interaction: discord.Interaction, commandsData: dict, executedPath: str) -> dict:
@@ -89,316 +75,412 @@ async def handleActionCommands(interaction: discord.Interaction, commandsData: d
     return commandsExecutionData
 
 
+def startBackgroundTask(**taskArgs):
+    async def wait(tasks: dict):
+        try:
+            await asyncio.sleep(tasks["duration"])
+            await tasks["function"](*tasks["functionArgs"])
+        except Exception as e:
+            interaction = tasks["interaction"]
+            if not interaction.is_expired():
+                await messages.handleError(tasks["bot"], tasks["commandName"], tasks["executedPath"], e,
+                                           placeholders={}, interaction=interaction)
+
+    threading.Thread(target=utils.separateThread, args=(asyncio.get_running_loop(), wait, taskArgs),
+                     daemon=True).start()
+
+
+def checkIFAnyValuableData(listData: list) -> str:
+    for listDataItem in listData:
+        if not isinstance(listDataItem, dict):
+            return "The provided data is incorrect. Expected map! Example: {'role_id': ..., 'role_name':...}"
+    return ""
+
+
+async def actionBanUsers(members: List[discord.Member], reason: str):
+    for member in members:
+        await utils.banUser(member, reason=reason)
+
+
+async def actionRemoveUserRoles(roles: Dict[discord.Role, List[discord.Member]], reason: str):
+    for role, members in roles.items():
+        for member in members:
+            await utils.removeRole(member, role, reason=reason)
+
+
+async def actionAddUserRoles(roles: Dict[discord.Role, List[discord.Member]], reason: str):
+    for role, members in roles.items():
+        for member in members:
+            await utils.addRole(member, role, reason=reason)
+
+
+async def actionRemoveUserTimeout(timeoutMembers: List[discord.Member], reason: str):
+    for mem in timeoutMembers:
+        await utils.removeUserTimeout(mem, reason=reason)
+
+
+async def actionRemoveUserDeafen(members: List[discord.Member], reason: str):
+    for mem in members:
+        await utils.userDeafen(mem, False, reason=reason)
+
+
+async def actionUserDeafen(members: List[discord.Member], reason: str):
+    for mem in members:
+        await utils.userDeafen(mem, True, reason=reason)
+
+
+async def actionRemoveUserMute(members: List[discord.Member], reason: str):
+    for mem in members:
+        await utils.userMute(mem, False, reason=reason)
+
+
+async def actionUserMute(members: List[discord.Member], reason: str):
+    for mem in members:
+        await utils.userMute(mem, True, reason=reason)
+
+
+async def actionCreateRole(roles: List[discord.Role], reason: str, give_back_roles_to_users: bool,
+                           give_back_reason: str, guild: discord.Guild):
+    for roleToCreate in roles:
+        roleData: dict = utils.getRoleData(roleToCreate)
+        roleData["reason"] = reason
+        if not give_back_roles_to_users:
+            roleData.pop("users")
+        roleCreated = await utils.createRoleWithDisplayIcon(roleData, guild)
+        if roleCreated is None:
+            roleCreated = await utils.createRoleNoDisplayIcon(roleData, guild)
+            if roleCreated is None:
+                raise Exception(f"Couldn't create a role with this data: {roleData}")
+        if "users" not in roleData.keys() or len(roleData.get("users", [])) == 0:
+            continue
+        for userId in roleData.get("users", []):
+            member: discord.Member | None = utils.getMemberGuild(guild, userId)
+            if member is None:
+                raise Exception(f"Couldn't find member with ID {userId} in {guild.name} : {guild.id} guild")
+            await utils.addRole(member, roleCreated, reason=give_back_reason)
+
+
+async def actionRoleEdit(roles: Dict[discord.Role, Dict], reason: str):
+    for editedRole, prevData in roles.items():
+        prevData["reason"] = reason
+        prevData["new_name"] = prevData.pop("name")
+        roleStatus: dict = await utils.editRole(prevData, editedRole)
+
+
+async def actionCategoryCreate(categories: List[discord.CategoryChannel], reason: str, guild: discord.Guild):
+    for categories in categories:
+        catData: dict = utils.getCategoryData(categories)
+        catData["reason"] = reason
+        await utils.createCategory(catData, guild)
+
+
+async def actionCategoryEdit(categories: Dict[discord.CategoryChannel, Dict], reason: str):
+    for category, prevData in categories.items():
+        prevData["reason"] = reason
+        prevData["new_name"] = prevData.pop("name")
+        await utils.editCategory(category, prevData)
+
+
+async def actionChannelDelete(channels: list, reason: str):
+    for channel in channels:
+        await utils.deleteChannel(channel, reason)
+
+
+async def actionChannelCreate(channels: list, reason: str):
+    for channelToDel in channels:
+        data: dict = utils.getChannelData(channelToDel)
+        data["reason"] = reason
+        try:
+            await utils.createChannel(data, channelToDel.guild)
+        except Exception:
+            continue
+
+
 async def handleUser(interaction: discord.Interaction, userData: dict, bot: commands.Bot, commandName: str,
                      executedPath: str) -> dict:
     userStatus: dict = dict()
     for userDo in userData.keys():
         userStatus[userDo] = dict()
-        userDoData: dict = userData.get(userDo, {})
         userStatus[userDo]["action_user_data"] = dict()
-        if not isinstance(userDoData, dict):
-            continue
-        userStatus[userDo]["action_user_data"] = userDoData
-        duration: int = int(userDoData.get("duration", -1))
+        userDoDataList: list = userData.get(userDo, [])
+        if not isinstance(userDoDataList, list):
+            userDoDataList = [userDoDataList] if isinstance(userDoDataList, dict) else []
+        elif len(userDoDataList) == 0:
+            userStatus[userDo]["error"] = "Expected a map! Example: {'interact_both': False, 'user_id': ...}"
+            break
+
+        checkReason = checkIFAnyValuableData(userDoDataList)
+        if len(checkReason) > 0:
+            userStatus[userDo]["error"] = checkReason
+            break
+
+        userStatus[userDo]["action_user_data"] = userDoDataList
         user = interaction.user
         userStatus[userDo]["involved_user_name"] = user.name
         userStatus[userDo]["involved_user_id"] = user.id
-        users: list = utils.getUsers(userDoData, interaction.guild)
-        roles: list = utils.getRoles(userDoData, interaction.guild)
-        reason = str(userDoData.get("reason", ""))
+        defaultArguments = {"bot": bot, "interaction": interaction, "duration": -1, "commandName": commandName,
+                            "executedPath": executedPath}
         if userDo == "ban":
-            usersBanned: list = []
-            if bool(userDoData.get("interact_both", True)):
-                res: bool = await utils.banUser(user, reason=reason)
-                if res:
-                    usersBanned.append(user)
-            for resUser in users:
-                res: bool = await utils.banUser(resUser, reason=reason)
-                if res:
-                    usersBanned.append(resUser)
-            if duration > 0:
-                startBackgroundTask(function=utils.unbanUser,
-                                    functionArgs=[user, str(userDoData.get("unban_reason", ""))],
-                                    bot=bot, interaction=interaction, commandName=commandName, duration=duration,
-                                    executedPath=executedPath)
+            for userDoData in userDoDataList:
+                users: list = utils.getUsers(userDoData, interaction.guild)
+                reason = str(userDoData.get("reason", ""))
+
+                usersBanned: list = []
+                if bool(userDoData.get("interact_both", True)):
+                    res: bool = await utils.banUser(user, reason=reason)
+                    if res:
+                        usersBanned.append(user)
+                for resUser in users:
+                    res: bool = await utils.banUser(resUser, reason=reason)
+                    if res:
+                        usersBanned.append(resUser)
+
+                duration: int = int(userDoData.get("duration", -1))
+                if duration > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=utils.unbanUser,
+                                        functionArgs=[user, str(userDoData.get("unban_reason", ""))],
+                                        **defaultArguments)
         elif userDo == "unban":
-            usersUnbanned: list = []
-            if bool(userDoData.get("interact_both", True)):
-                res: bool = await utils.unbanUser(user, reason=reason)
-                if res:
-                    usersUnbanned.append(user)
-            for resUser in users:
-                res: bool = await utils.unbanUser(resUser, reason=reason)
-                if res:
-                    usersUnbanned.append(resUser)
+            for userDoData in userDoDataList:
+                duration: int = int(userDoData.get("duration", -1))
+                users: list = utils.getUsers(userDoData, interaction.guild)
+                reason = str(userDoData.get("reason", ""))
 
-            if duration > 0:
-                async def wait(duration2: int, members: List[discord.Member], reason: str):
-                    try:
-                        await asyncio.sleep(duration2)
-                        for member in members:
-                            await utils.banUser(member, reason=reason)
-                    except Exception:
-                        pass
+                usersUnbanned: list = []
+                if bool(userDoData.get("interact_both", True)):
+                    res: bool = await utils.unbanUser(user, reason=reason)
+                    if res:
+                        usersUnbanned.append(user)
+                for resUser in users:
+                    res: bool = await utils.unbanUser(resUser, reason=reason)
+                    if res:
+                        usersUnbanned.append(resUser)
 
-                threading.Thread(target=utils.separateThread, args=(loop, wait, duration, usersUnbanned,
-                                                                    str(userDoData.get("ban_reason", ""))),
-                                 daemon=True).start()
+                if duration > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionBanUsers,
+                                        functionArgs=[usersUnbanned, str(userDoData.get("unban_reason", ""))],
+                                        **defaultArguments)
         elif userDo == "kick":
-            if bool(userDoData.get("interact_both", True)):
-                await utils.kickUser(user, reason=reason)
-            for resUser in users:
-                await utils.kickUser(resUser, reason=reason)
+            for userDoData in userDoDataList:
+                users: list = utils.getUsers(userDoData, interaction.guild)
+                reason = str(userDoData.get("reason", ""))
+                if bool(userDoData.get("interact_both", True)):
+                    await utils.kickUser(user, reason=reason)
+                for resUser in users:
+                    await utils.kickUser(resUser, reason=reason)
         elif userDo == "role_add":
-            roleAdded: dict = dict()
-            for role in roles:
-                roleAdded[role] = []
-                if bool(userDoData.get("interact_both", True)):
-                    res: bool = await utils.addRole(user, role, reason=reason)
-                    if res:
-                        roleAdded[role].append(user)
-                for resUser in users:
-                    res: bool = await utils.addRole(resUser, role, reason=reason)
-                    if res:
-                        roleAdded[role].append(resUser)
-            if duration > 0:
-                async def wait(duration2: int, reason1: str, addedRoles: Dict[discord.Role, List[discord.Member]]):
-                    try:
-                        await asyncio.sleep(duration2)
-                        for addedRole, addedMembers in addedRoles.items():
-                            for mem in addedMembers:
-                                await utils.removeRole(mem, addedRole, reason=reason1)
-                    except Exception:
-                        pass
+            for userDoData in userDoDataList:
+                duration: int = int(userDoData.get("duration", -1))
+                users: list = utils.getUsers(userDoData, interaction.guild)
+                roles: list = utils.getRoles(userDoData, interaction.guild)
+                reason = str(userDoData.get("reason", ""))
 
-                threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                    str(userDoData.get("role_remove_reason", "")),
-                                                                    roleAdded),
-                                 daemon=True).start()
+                roleAdded: dict = dict()
+                for role in roles:
+                    roleAdded[role] = []
+                    if bool(userDoData.get("interact_both", True)):
+                        res: bool = await utils.addRole(user, role, reason=reason)
+                        if res:
+                            roleAdded[role].append(user)
+                    for resUser in users:
+                        res: bool = await utils.addRole(resUser, role, reason=reason)
+                        if res:
+                            roleAdded[role].append(resUser)
+                if duration > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionRemoveUserRoles,
+                                        functionArgs=[roleAdded, str(userDoData.get("role_remove_reason", ""))],
+                                        **defaultArguments)
         elif userDo == "role_remove":
-            roleRemoved: dict = dict()
-            for role in roles:
-                roleRemoved[role] = []
-                if bool(userDoData.get("interact_both", True)):
-                    res: bool = await utils.removeRole(user, role, reason=reason)
-                    if res:
-                        roleRemoved[role].append(user)
-                for resUser in users:
-                    res: bool = await utils.removeRole(resUser, role, reason=reason)
-                    if res:
-                        roleRemoved[role].append(resUser)
-            if duration > 0:
-                async def wait(duration2: int, reason1: str, addedRoles: Dict[discord.Role, List[discord.Member]]):
-                    try:
-                        await asyncio.sleep(duration2)
-                        for addedRole, addedMembers in addedRoles.items():
-                            for mem in addedMembers:
-                                await utils.addRole(mem, addedRole, reason=reason1)
-                    except Exception:
-                        pass
+            for userDoData in userDoDataList:
+                duration: int = int(userDoData.get("duration", -1))
+                users: list = utils.getUsers(userDoData, interaction.guild)
+                roles: list = utils.getRoles(userDoData, interaction.guild)
+                reason = str(userDoData.get("reason", ""))
 
-                threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                    str(userDoData.get("role_add_reason", "")),
-                                                                    roleRemoved),
-                                 daemon=True).start()
+                roleRemoved: dict = dict()
+                for role in roles:
+                    roleRemoved[role] = []
+                    if bool(userDoData.get("interact_both", True)):
+                        res: bool = await utils.removeRole(user, role, reason=reason)
+                        if res:
+                            roleRemoved[role].append(user)
+                    for resUser in users:
+                        res: bool = await utils.removeRole(resUser, role, reason=reason)
+                        if res:
+                            roleRemoved[role].append(resUser)
+                if duration > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionAddUserRoles,
+                                        functionArgs=[roleRemoved, str(userDoData.get("role_add_reason", ""))],
+                                        **defaultArguments)
         elif userDo == "timeout":
-            timeoutedMembers: list = []
-            strptime = datetime.strptime(reason, "YYYY-MM-DDTHH:MM:SS")
-            if bool(userDoData.get("interact_both", True)):
-                res: bool = await utils.timeoutUser(user, strptime, reason=reason)
-                if res:
-                    timeoutedMembers.append(user)
-            for resUser in users:
-                res: bool = await utils.timeoutUser(resUser, strptime, reason=reason)
-                if res:
-                    timeoutedMembers.append(resUser)
-            if duration > 0:
-                async def wait(duration2: int, reason1: str, timeoutMembers: List[discord.Member]):
-                    try:
-                        await asyncio.sleep(duration2)
-                        for mem in timeoutMembers:
-                            await utils.removeTimeoutUser(mem, reason=reason1)
-                    except Exception:
-                        pass
+            for userDoData in userDoDataList:
+                duration: int = int(userDoData.get("duration", -1))
+                users: list = utils.getUsers(userDoData, interaction.guild)
+                reason = str(userDoData.get("reason", ""))
 
-                threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                    str(userDoData.get("timeout_remove_reason", "")),
-                                                                    timeoutedMembers), daemon=True).start()
+                timeoutedMembers: list = []
+                strptime = datetime.strptime(reason, "YYYY-MM-DDTHH:MM:SS")
+                if bool(userDoData.get("interact_both", True)):
+                    res: bool = await utils.timeoutUser(user, strptime, reason=reason)
+                    if res:
+                        timeoutedMembers.append(user)
+                for resUser in users:
+                    res: bool = await utils.timeoutUser(resUser, strptime, reason=reason)
+                    if res:
+                        timeoutedMembers.append(resUser)
+                if duration > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionRemoveUserTimeout,
+                                        functionArgs=[timeoutedMembers,
+                                                      str(userDoData.get("timeout_remove_reason", ""))],
+                                        **defaultArguments)
         elif userDo == "deafen":
-            deafenMembers: list = []
-            if bool(userDoData.get("interact_both", True)):
-                res: bool = await utils.userDeafen(user, True, reason=reason)
-                if res:
-                    deafenMembers.append(user)
-            for resUser in users:
-                res: bool = await utils.userDeafen(user, True, reason=reason)
-                if res:
-                    deafenMembers.append(resUser)
+            for userDoData in userDoDataList:
+                duration: int = int(userDoData.get("duration", -1))
+                users: list = utils.getUsers(userDoData, interaction.guild)
+                reason = str(userDoData.get("reason", ""))
 
-            if duration > 0:
-                async def wait(duration2: int, reason1: str, deafenMembers1: List[discord.Member]):
-                    try:
-                        await asyncio.sleep(duration2)
-                        for mem in deafenMembers1:
-                            await utils.userDeafen(mem, False, reason=reason1)
-                    except Exception:
-                        pass
+                deafenMembers: list = []
+                if bool(userDoData.get("interact_both", True)):
+                    res: bool = await utils.userDeafen(user, True, reason=reason)
+                    if res:
+                        deafenMembers.append(user)
+                for resUser in users:
+                    res: bool = await utils.userDeafen(user, True, reason=reason)
+                    if res:
+                        deafenMembers.append(resUser)
 
-                threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                    str(userDoData.get("deafen_remove_reason", "")),
-                                                                    deafenMembers), daemon=True).start()
+                if duration > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionRemoveUserDeafen,
+                                        functionArgs=[deafenMembers, str(userDoData.get("deafen_remove_reason", ""))],
+                                        **defaultArguments)
         elif userDo == "deafen_remove":
-            removeDeafenMembers: list = []
-            if bool(userDoData.get("interact_both", True)):
-                res: bool = await utils.userDeafen(user, False, reason=reason)
-                if res:
-                    removeDeafenMembers.append(user)
-            for resUser in users:
-                res: bool = await utils.userDeafen(user, False, reason=reason)
-                if res:
-                    removeDeafenMembers.append(resUser)
+            for userDoData in userDoDataList:
+                duration: int = int(userDoData.get("duration", -1))
+                users: list = utils.getUsers(userDoData, interaction.guild)
+                reason = str(userDoData.get("reason", ""))
 
-            if duration > 0:
-                async def wait(duration2: int, reason1: str, removeDeafenMembers1: List[discord.Member]):
-                    try:
-                        await asyncio.sleep(duration2)
-                        for mem in removeDeafenMembers1:
-                            await utils.userDeafen(mem, True, reason=reason1)
-                    except Exception:
-                        pass
+                removeDeafenMembers: list = []
+                if bool(userDoData.get("interact_both", True)):
+                    res: bool = await utils.userDeafen(user, False, reason=reason)
+                    if res:
+                        removeDeafenMembers.append(user)
+                for resUser in users:
+                    res: bool = await utils.userDeafen(user, False, reason=reason)
+                    if res:
+                        removeDeafenMembers.append(resUser)
 
-                threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                    str(userDoData.get("deafen_reason", "")),
-                                                                    removeDeafenMembers), daemon=True).start()
+                if duration > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionUserDeafen,
+                                        functionArgs=[removeDeafenMembers, str(userDoData.get("deafen_reason", ""))],
+                                        **defaultArguments)
         elif userDo == "mute":
-            removeMutedMembers: list = []
-            if bool(userDoData.get("interact_both", True)):
-                res: bool = await utils.userMute(user, True, reason=reason)
-                if res:
-                    removeMutedMembers.append(user)
-            for resUser in users:
-                res: bool = await utils.userMute(user, True, reason=reason)
-                if res:
-                    removeMutedMembers.append(resUser)
+            for userDoData in userDoDataList:
+                duration: int = int(userDoData.get("duration", -1))
+                users: list = utils.getUsers(userDoData, interaction.guild)
+                reason = str(userDoData.get("reason", ""))
+                removeMutedMembers: list = []
 
-            if duration > 0:
-                async def wait(duration2: int, reason1: str, mutedMembers1: List[discord.Member]):
-                    try:
-                        await asyncio.sleep(duration2)
-                        for mem in mutedMembers1:
-                            await utils.userMute(mem, False, reason=reason1)
-                    except Exception:
-                        pass
+                if bool(userDoData.get("interact_both", True)):
+                    res: bool = await utils.userMute(user, True, reason=reason)
+                    if res:
+                        removeMutedMembers.append(user)
+                for resUser in users:
+                    res: bool = await utils.userMute(user, True, reason=reason)
+                    if res:
+                        removeMutedMembers.append(resUser)
 
-                threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                    str(userDoData.get("mute_remove_reason", "")),
-                                                                    removeMutedMembers), daemon=True).start()
+                if duration > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionRemoveUserMute,
+                                        functionArgs=[removeMutedMembers,
+                                                      str(userDoData.get("mute_remove_reason", ""))],
+                                        **defaultArguments)
         elif userDo == "mute_remove":
-            removeMutedMembers: list = []
-            if bool(userDoData.get("interact_both", True)):
-                res: bool = await utils.userMute(user, False, reason=reason)
-                if res:
-                    removeMutedMembers.append(user)
-            for resUser in users:
-                res: bool = await utils.userMute(user, False, reason=reason)
-                if res:
-                    removeMutedMembers.append(resUser)
+            for userDoData in userDoDataList:
+                duration: int = int(userDoData.get("duration", -1))
+                users: list = utils.getUsers(userDoData, interaction.guild)
+                reason = str(userDoData.get("reason", ""))
 
-            if duration > 0:
-                async def wait(duration2: int, reason1: str, removeMutedMembers1: List[discord.Member]):
-                    try:
-                        await asyncio.sleep(duration2)
-                        for mem in removeMutedMembers1:
-                            await utils.userMute(mem, True, reason=reason1)
-                    except Exception:
-                        pass
+                removeMutedMembers: list = []
+                if bool(userDoData.get("interact_both", True)):
+                    res: bool = await utils.userMute(user, False, reason=reason)
+                    if res:
+                        removeMutedMembers.append(user)
+                for resUser in users:
+                    res: bool = await utils.userMute(user, False, reason=reason)
+                    if res:
+                        removeMutedMembers.append(resUser)
 
-                threading.Thread(target=utils.separateThread, args=(loop, wait, duration,
-                                                                    str(userDoData.get("mute_reason", "")),
-                                                                    removeMutedMembers), daemon=True).start()
+                if duration > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionUserMute,
+                                        functionArgs=[removeMutedMembers, str(userDoData.get("mute_reason", ""))],
+                                        **defaultArguments)
     return userStatus
 
 
-async def handleGuild(interaction: discord.Interaction, guildData: dict):
+async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: commands.Bot, commandName: str,
+                      executedPath: str):
+    guildStatus: dict = dict()
+    guild = interaction.guild
+    guildId = guild.id
+
+    guildStatus[guildId] = dict()
+    guildStatus[guildId]["status_guild_name"] = interaction.guild.name
+    defaultArguments = {"bot": bot, "interaction": interaction, "duration": -1, "commandName": commandName,
+                        "executedPath": executedPath}
     for guildToDo in guildData.keys():
-        loop = asyncio.get_running_loop()
         # TODO finish this
-        guild = interaction.guild
         listData = guildData.get(guildToDo, [])
+        if not isinstance(listData, list):
+            listData = [listData] if isinstance(listData, dict) else []
+        elif len(listData) == 0:
+            guildStatus[guildId]["error"] = \
+                "No data has been provided. Expected map! Example: {'role_id': ..., 'role_name':...}"
+            break
+
+        checkReason = checkIFAnyValuableData(listData)
+        if len(checkReason) > 0:
+            guildStatus[guildId]["error"] = checkReason
+            break
+
         if guildToDo == "role_create":
-            if not isinstance(listData, list):
-                listData = []
             for rolesToCreate in listData:
-                if not isinstance(rolesToCreate, dict):
-                    continue
-                duration: int = int(rolesToCreate.get("duration", -1))
                 role = await utils.createRoleWithDisplayIcon(rolesToCreate, guild)
                 if role is None:
                     role = await utils.createRoleNoDisplayIcon(rolesToCreate, guild)
                     if role is None:
                         continue
-
+                duration: int = int(rolesToCreate.get("duration", -1))
                 if duration > 0:
-                    async def wait(duration2: int, roleToDelete: discord.Role, reason: str):
-                        try:
-                            await asyncio.sleep(duration2)
-                            await utils.deleteRole(roleToDelete, reason=reason)
-                        except Exception:
-                            pass
-
-                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, role,
-                                                                        rolesToCreate.get("delete_reason", "")),
-                                     daemon=True).start()
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=utils.eleteRole,
+                                        functionArgs=[role, str(rolesToCreate.get("role_delete_reason", ""))],
+                                        **defaultArguments)
         elif guildToDo == "role_delete":
-            if not isinstance(listData, list):
-                listData = []
             for rolesToDelete in listData:
-                if not isinstance(rolesToDelete, dict):
-                    continue
                 duration: int = int(rolesToDelete.get("duration", -1))
                 roles: list = []
                 for selectedRole in utils.getRoles(rolesToDelete, interaction.guild):
-                    res: bool = await utils.deleteRole(selectedRole, guild)
+                    res: bool = await utils.deleteRoleFromData(selectedRole, guild)
                     if res:
                         roles.append(selectedRole)
                 if duration > 0:
-                    async def wait(duration2: int, guildD: discord.Guild, rolesToCreate2: List[discord.Role],
-                                   reason: str, give_back_roles_to_users: bool, give_back_reason: str):
-                        try:
-                            await asyncio.sleep(duration2)
-                            for roleToCreate in rolesToCreate2:
-                                roleData: dict = utils.getRoleData(roleToCreate)
-                                roleData["reason"] = reason
-                                if not give_back_roles_to_users:
-                                    roleData.pop("users")
-                                roleCreated = await utils.createRoleWithDisplayIcon(roleData, guildD)
-                                if roleCreated is None:
-                                    roleCreated = await utils.createRoleNoDisplayIcon(roleData, guildD)
-                                    if roleCreated is None:
-                                        continue
-                                if "users" not in roleData.keys() or len(roleData.get("users", [])) == 0:
-                                    continue
-                                for userId in roleData.get("users", []):
-                                    member: discord.Member | None = utils.getMemberGuild(guildD, userId)
-                                    if member is None:
-                                        continue
-                                    await utils.addRole(member, roleCreated, reason=give_back_reason)
-                        except Exception:
-                            pass
-
-                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, guild,
-                                                                        roles,
-                                                                        str(rolesToDelete.get("create_reason", "")),
-                                                                        bool(rolesToDelete.get(
-                                                                            "give_back_roles_to_users", False)),
-                                                                        str(rolesToDelete.get("give_back_reason", ""))),
-                                     daemon=True).start()
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionCreateRole,
+                                        functionArgs=[roles, str(rolesToDelete.get("role_create_reason", "")),
+                                                      bool(rolesToDelete.get("give_back_roles_to_users", False)),
+                                                      str(rolesToDelete.get("give_back_reason", ""))],
+                                        **defaultArguments)
         elif guildToDo == "role_edit":
-            if not isinstance(listData, list):
-                listData = []
             for rolesToEdit in listData:
-                if not isinstance(rolesToEdit, dict):
-                    continue
                 roles: List[discord.Role] = utils.getRoles(rolesToEdit, guild)
                 edited: dict[discord.Role, dict] = dict()
                 for role in roles:
@@ -408,72 +490,40 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                         edited[role] = prevStatus
                 duration: int = int(rolesToEdit.get("duration", -1))
                 if duration > 0:
-                    async def wait(duration2: int, guildD: discord.Guild, editedRoles: dict[discord.Role, dict],
-                                   editReason: str):
-                        try:
-                            await asyncio.sleep(duration2)
-                            for editedRole, prevData in editedRoles.items():
-                                prevData["reason"] = editReason
-                                prevData["new_name"] = prevData.pop("name")
-                                await utils.editRole(prevData, editedRole)
-                        except Exception:
-                            pass
-
-                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, guild,
-                                                                        edited,
-                                                                        str(rolesToEdit.get("edit_reason", ""))),
-                                     daemon=True).start()
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionRoleEdit,
+                                        functionArgs=[edited, str(rolesToEdit.get("role_edit_reason", ""))],
+                                        **defaultArguments)
         elif guildToDo == "overview":
-            overviewData: dict = dict(guildData.get(guildToDo, {}))
-            fullPrevData: dict = utils.getGuildData(guild)
-            res: bool = await utils.editGuild(overviewData, guild)
-            prevData: dict = dict()
-            if not res:
-                continue
-            for key in overviewData.keys():
-                if key not in fullPrevData.keys():
+            for overviewData in listData:
+                fullPrevData: dict = utils.getGuildData(guild)
+                res: bool = await utils.editGuild(overviewData, guild, str(overviewData.get("reason", "")))
+                prevData: dict = dict()
+                if not res:
                     continue
-                prevData[key] = fullPrevData.get(key)
-            duration: int = int(overviewData.get("duration", -1))
-            if duration > 0:
-                async def wait(duration2: int, guildD: discord.Guild, prevDataGuild: dict, reason: str):
-                    try:
-                        await asyncio.sleep(duration2)
-                        await utils.editGuild(prevDataGuild, guildD, reason=reason)
-                    except Exception:
-                        pass
-
-                threading.Thread(target=utils.separateThread, args=(loop, wait, duration, guild, prevData,
-                                                                    str(overviewData.get("reason", ""))),
-                                 daemon=True).start()
+                for key in overviewData.keys():
+                    if key not in fullPrevData.keys():
+                        continue
+                    prevData[key] = fullPrevData.get(key)
+                duration: int = int(overviewData.get("duration", -1))
+                if duration > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=utils.editGuild,
+                                        functionArgs=[guild, prevData, str(overviewData.get("edit_reason", ""))],
+                                        **defaultArguments)
         elif guildToDo == "category_create":
-            if not isinstance(listData, list):
-                listData = []
             for categoryData in listData:
-                if not isinstance(categoryData, dict):
-                    continue
                 category: discord.CategoryChannel | None = await utils.createCategory(categoryData, guild)
                 if category is None:
                     continue
                 duration: int = int(categoryData.get("duration", -1))
                 if duration > 0:
-                    async def wait(duration2: int, categoryToDelete: discord.CategoryChannel, deleteReason: str):
-                        try:
-                            await asyncio.sleep(duration2)
-                            await utils.deleteCategory(categoryToDelete, deleteReason)
-                        except Exception:
-                            pass
-
-                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, category,
-                                                                        str(categoryData.get("category_delete_reason",
-                                                                                             ""))),
-                                     daemon=True).start()
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=utils.deleteCategory,
+                                        functionArgs=[category, str(categoryData.get("category_delete_reason", ""))],
+                                        **defaultArguments)
         elif guildToDo == "category_delete":
-            if not isinstance(listData, list):
-                listData = []
             for categoryData in listData:
-                if not isinstance(categoryData, dict):
-                    continue
                 deletedCategories: List[discord.CategoryChannel] = []
                 for category in utils.getCategories(categoryData, guild):
                     if category is None:
@@ -484,27 +534,13 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
 
                 duration: int = int(categoryData.get("duration", -1))
                 if duration > 0:
-                    async def wait(duration2: int, guildD: discord.Guild,
-                                   categoriesToCreate: List[discord.CategoryChannel], createReason: str):
-                        try:
-                            await asyncio.sleep(duration2)
-                            for categories in categoriesToCreate:
-                                catData: dict = utils.getCategoryData(categories)
-                                catData["reason"] = createReason
-                                await utils.createCategory(catData, guildD)
-                        except Exception:
-                            pass
-
-                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, guild, deletedCategories,
-                                                                        str(categoryData.get("category_create_reason",
-                                                                                             ""))),
-                                     daemon=True).start()
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionCategoryCreate,
+                                        functionArgs=[deletedCategories,
+                                                      str(categoryData.get("category_delete_reason", "")), guild],
+                                        **defaultArguments)
         elif guildToDo == "category_edit":
-            if not isinstance(listData, list):
-                listData = []
             for categoryData in listData:
-                if not isinstance(categoryData, dict):
-                    continue
                 editedCategories: Dict[discord.CategoryChannel, dict] = dict()
                 for category in utils.getCategories(categoryData, guild):
                     if category is None:
@@ -516,50 +552,25 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
 
                 duration: int = int(categoryData.get("duration", -1))
                 if duration > 0:
-                    async def wait(duration2: int, categoriesToEdit: Dict[discord.CategoryChannel, dict],
-                                   editReason: str):
-                        try:
-                            await asyncio.sleep(duration2)
-                            for categories, prevData in categoriesToEdit.items():
-                                prevData["reason"] = editReason
-                                prevData["new_name"] = prevData.pop("name")
-                                await utils.editCategory(categories, prevData)
-                        except Exception:
-                            pass
-
-                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, editedCategories,
-                                                                        str(categoryData.get("category_edit_reason",
-                                                                                             ""))),
-                                     daemon=True).start()
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionCategoryEdit,
+                                        functionArgs=[editedCategories,
+                                                      str(categoryData.get("category_edit_reason", ""))],
+                                        **defaultArguments)
         elif guildToDo == "channel_create":
-            if not isinstance(listData, list):
-                listData = []
             for channelData in listData:
-                if not isinstance(channelData, dict):
-                    continue
                 channels: list = await utils.createChannel(channelData, guild)
                 if len(channels) == 0:
                     continue
                 duration: int = int(channelData.get("duration", -1))
                 if duration > 0:
-                    async def wait(duration2: int, channelsToDelete: list, deleteReason: str):
-                        try:
-                            await asyncio.sleep(duration2)
-                            for channelToDel in channelsToDelete:
-                                await utils.deleteChannel(channelToDel, deleteReason)
-                        except Exception:
-                            pass
-
-                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, channels,
-                                                                        str(channelData.get("channel_delete_reason",
-                                                                                            ""))),
-                                     daemon=True).start()
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionChannelDelete,
+                                        functionArgs=[channels,
+                                                      str(channelData.get("channel_delete_reason", ""))],
+                                        **defaultArguments)
         elif guildToDo == "channel_delete":
-            if not isinstance(listData, list):
-                listData = []
             for channelData in listData:
-                if not isinstance(channelData, dict):
-                    continue
                 deletedChannels: list = []
                 for channel in utils.getChannels(channelData, guild):
                     res: bool = await utils.deleteChannel(channel, reason=str(channelData.get("reason", "")))
@@ -567,32 +578,14 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict):
                         deletedChannels.append(channel)
                 duration: int = int(channelData.get("duration", -1))
                 if duration > 0:
-                    async def wait(duration2: int, channelsToCreate: list, createReason: str):
-                        try:
-                            await asyncio.sleep(duration2)
-                            for channelToDel in channelsToCreate:
-                                data: dict = utils.getChannelData(channelToDel)
-                                data["reason"] = createReason
-                                try:
-                                    await utils.createChannel(data, channelToDel.guild)
-                                except Exception:
-                                    continue
-                        except Exception:
-                            pass
-
-                    threading.Thread(target=utils.separateThread, args=(loop, wait, duration, deletedChannels,
-                                                                        str(channelData.get("channel_create_reason",
-                                                                                            ""))),
-                                     daemon=True).start()
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(function=actionChannelCreate,
+                                        functionArgs=[deletedChannels,
+                                                      str(channelData.get("channel_create_reason", ""))],
+                                        **defaultArguments)
         elif guildToDo == "channel_edit":
-            if not isinstance(listData, list):
-                listData = []
             for channelData in listData:
-                if not isinstance(channelData, dict):
-                    continue
-                editedChannels: dict = dict()
-                for channel in utils.getChannels(channelData, guild):
-                    pass
+                pass
 
 
 async def handleAllActions(bot: commands.Bot, actionData: dict, interaction: discord.Interaction) -> dict:
@@ -625,7 +618,7 @@ async def handleAllActions(bot: commands.Bot, actionData: dict, interaction: dis
                 resultData[action][doing]["status"] = await handleGuild(interaction,
                                                                         dict(actionData.get(action, {})
                                                                              .get(doing, {})).copy(),
-                                                                        action, doing)
+                                                                        bot, action, executionPath)
     return resultData
 
 

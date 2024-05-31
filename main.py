@@ -137,9 +137,11 @@ if __name__ == "__main__":
     bot.run(token)
 
 # TODO LIST
-# + Do placeholders
+# + handle reply line 22 in messages.py
+# + make sure line 54 in actions.py throws error
+# + fix all `async def action**(...)` in actions.py
 # + Do errors
-# + continue with actions
+# + continue with guild actions
 
 
 """

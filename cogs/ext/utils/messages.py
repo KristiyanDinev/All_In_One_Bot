@@ -307,10 +307,7 @@ async def buildEmbed(bot: commands.Bot, command: str, message_key: str, executio
             elif key == utils.configManager.getEmbedDescription():
                 embed.description = placeholders_util.usePlaceholders(value, placeholders)
             elif key == utils.configManager.getEmbedColor():
-                value = placeholders_util.usePlaceholders(value, placeholders)
-                embed.colour = discord.Colour.random() \
-                    if value == "random" or len(value) == 0 \
-                    else discord.Colour.from_str(value)
+                embed.colour = utils.getColour(placeholders_util.usePlaceholders(value, placeholders))
             elif key == utils.configManager.getEmbedFields():
                 notinlinePlaceholder = utils.configManager.getNotInLinePlaceholder()
                 if not isinstance(value, dict):
