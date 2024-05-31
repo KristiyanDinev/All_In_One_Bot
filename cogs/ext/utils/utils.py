@@ -193,6 +193,9 @@ async def deleteRoleFromData(roleData: dict, guild: discord.Guild) -> List[disco
     return deleted
 
 
+async def deleteRole(role: discord.Role, reason: str):
+    await role.delete(reason=reason)
+
 def getRoles(roleData: dict, guild: discord.Guild) -> list:
     try:
         roleId: str = str(roleData.get("role_id", ""))
@@ -294,7 +297,7 @@ async def editRole(roleData: dict, role: discord.Role) -> dict:
         except Exception as e:
             roleStatus["role_edit_error"] = e
         finally:
-            roleStatus["role_edit"] = "success"
+            roleStatus["role_edit"] = True
     else:
         try:
             await role.edit(name=name, reason=str(roleData.get("reason", "")), colour=colour, hoist=hoist,
@@ -302,7 +305,7 @@ async def editRole(roleData: dict, role: discord.Role) -> dict:
         except Exception as e:
             roleStatus["role_edit_error"] = e
         finally:
-            roleStatus["role_edit"] = "success"
+            roleStatus["role_edit"] = True
 
     if "users" in roleData.keys():
         users: list = roleData.get("users", [])
@@ -310,6 +313,9 @@ async def editRole(roleData: dict, role: discord.Role) -> dict:
             return roleStatus
         roleStatus["role_remove_user_error"] = []
         roleStatus["role_remove_user_success"] = []
+
+        roleStatus["role_add_user_error"] = []
+        roleStatus["role_add_user_success"] = []
         for member in role.members:
             if member.id in users:
                 continue
@@ -325,8 +331,16 @@ async def editRole(roleData: dict, role: discord.Role) -> dict:
         for userId in users:
             member: discord.Member | None = getMemberGuild(role.guild, userId)
             if member is None or memberHasRole(member, role):
+                roleStatus["role_add_user_error"].append({"message":
+                                    f"there is no member with ID {userId} or member already has this role"})
                 continue
-            await addRole(member, role, reason=reason)
+            try:
+                await addRole(member, role, reason=reason)
+            except Exception as e:
+                roleStatus["role_add_user_error"].append({"error": e, "message":
+                         f"Couldn't add role {role.name} : {role.id} to member {member.name} : {member.id}"})
+            finally:
+                roleStatus["role_add_user_success"].append({"message": True})
 
 
 def getColour(color: str) -> discord.Colour:
@@ -634,7 +648,7 @@ def getTextChannel(guild: discord.Guild, channelId: int) -> discord.TextChannel 
     return channel if type(channel) == discord.TextChannel else None
 
 
-def getUsers(userData: dict, guild: discord.Guild) -> List[discord.User]:
+def getUsers(userData: dict, guild: discord.Guild) -> List[discord.Member]:
     userIds = userData.get("user_id")
     userNames = userData.get("user_name")
     if isinstance(userIds, int):

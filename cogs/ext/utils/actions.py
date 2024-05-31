@@ -102,6 +102,11 @@ async def actionBanUsers(members: List[discord.Member], reason: str):
         await utils.banUser(member, reason=reason)
 
 
+async def actionUnbanUsers(members: List[discord.Member], reason: str):
+    for member in members:
+        await utils.unbanUser(member, reason=reason)
+
+
 async def actionRemoveUserRoles(roles: Dict[discord.Role, List[discord.Member]], reason: str):
     for role, members in roles.items():
         for member in members:
@@ -221,204 +226,414 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
         defaultArguments = {"bot": bot, "interaction": interaction, "duration": -1, "commandName": commandName,
                             "executedPath": executedPath}
         if userDo == "ban":
-            for userDoData in userDoDataList:
-                users: list = utils.getUsers(userDoData, interaction.guild)
+            for i in range(len(userDoDataList)):
+                userDoData = userDoDataList[i]
+                userStatus[userDo][i] = dict()
                 reason = str(userDoData.get("reason", ""))
 
                 usersBanned: list = []
                 if bool(userDoData.get("interact_both", True)):
-                    res: bool = await utils.banUser(user, reason=reason)
-                    if res:
+                    try:
+                        await utils.banUser(user, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["user_ban_error"] = {"error": e,
+                                 "message": f"Couldn't ban user {user.name} : {user.id} for reason {reason}"}
+                    finally:
+                        userStatus[userDo][i]["user_ban_success"] = \
+                            {"message": f"Banned {user.name} : {user.id} for reason {reason}"}
                         usersBanned.append(user)
-                for resUser in users:
-                    res: bool = await utils.banUser(resUser, reason=reason)
-                    if res:
-                        usersBanned.append(resUser)
+
+                userStatus[userDo][i]["ban_success"] = []
+                userStatus[userDo][i]["ban_error"] = []
+                for userToBan in utils.getUsers(userDoData, interaction.guild):
+                    try:
+                        await utils.banUser(userToBan, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["ban_error"].append({"error": e,
+                                 "message": f"Couldn't ban user {user.name} : {user.id} for reason {reason}"})
+                    finally:
+                        userStatus[userDo][i]["ban_success"].append(
+                            {"message": f"Banned {user.name} : {user.id} for reason {reason}"})
+                        usersBanned.append(userToBan)
 
                 duration: int = int(userDoData.get("duration", -1))
-                if duration > 0:
+                if duration > 0 and len(usersBanned) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=utils.unbanUser,
-                                        functionArgs=[user, str(userDoData.get("unban_reason", ""))],
+                    startBackgroundTask(function=actionUnbanUsers,
+                                        functionArgs=[usersBanned, str(userDoData.get("unban_reason", ""))],
                                         **defaultArguments)
         elif userDo == "unban":
-            for userDoData in userDoDataList:
+            for i in range(len(userDoDataList)):
+                userDoData = userDoDataList[i]
+                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
-                users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
 
                 usersUnbanned: list = []
                 if bool(userDoData.get("interact_both", True)):
-                    res: bool = await utils.unbanUser(user, reason=reason)
-                    if res:
+                    try:
+                        await utils.unbanUser(user, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo]["user_unban_error"] = {"error": e,
+                                                                "message":
+                                             f"Couldn't unban user {user.name} : {user.id} for reason {reason}"}
+                    finally:
+                        userStatus[userDo]["user_unban_success"] = \
+                            {"message": f"Unbanned {user.name} : {user.id} for reason {reason}"}
                         usersUnbanned.append(user)
-                for resUser in users:
-                    res: bool = await utils.unbanUser(resUser, reason=reason)
-                    if res:
-                        usersUnbanned.append(resUser)
 
-                if duration > 0:
+                userStatus[userDo]["unban_error"] = []
+                userStatus[userDo]["unban_success"] = []
+                for resUser in utils.getUsers(userDoData, interaction.guild):
+                    try:
+                        await utils.unbanUser(resUser, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo]["unban_error"].append({"error": e,
+                                                                "message":
+                                       f"Couldn't unban user {resUser.name} : {resUser.id} for reason {reason}"})
+                    finally:
+                        userStatus[userDo]["unban_success"].append({"message":
+                                                    f"Unbanned {resUser.name} : {resUser.id} for reason {reason}"})
+                        usersUnbanned.append(user)
+
+                if duration > 0 and len(usersUnbanned) > 0:
                     defaultArguments["duration"] = duration
                     startBackgroundTask(function=actionBanUsers,
                                         functionArgs=[usersUnbanned, str(userDoData.get("unban_reason", ""))],
                                         **defaultArguments)
         elif userDo == "kick":
-            for userDoData in userDoDataList:
+            for i in range(len(userDoDataList)):
+                userDoData = userDoDataList[i]
+                userStatus[userDo][i] = dict()
                 users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
                 if bool(userDoData.get("interact_both", True)):
-                    await utils.kickUser(user, reason=reason)
+                    try:
+                        await utils.kickUser(user, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["user_kick_error"] = {"error": e,
+                                                                "message":
+                                    f"Couldn't kick user {user.name} : {user.id} for reason {reason}"}
+                    finally:
+                        userStatus[userDo][i]["user_kick_success"] = \
+                            {"message": f"Kicked {user.name} : {user.id} for reason {reason}"}
+
+                userStatus[userDo][i]["kick_error"] = []
+                userStatus[userDo][i]["kick_success"] = []
                 for resUser in users:
-                    await utils.kickUser(resUser, reason=reason)
+                    try:
+                        await utils.kickUser(resUser, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["kick_error"].append({"error": e,
+                                                                 "message":
+                         f"Couldn't kick user {resUser.name} : {resUser.id} for reason {reason}"})
+                    finally:
+                        userStatus[userDo][i]["kick_success"].append({"message":
+                                          f"Kicked {resUser.name} : {resUser.id} for reason {reason}"})
         elif userDo == "role_add":
-            for userDoData in userDoDataList:
+            for i in range(len(userDoDataList)):
+                userDoData = userDoDataList[i]
+                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 users: list = utils.getUsers(userDoData, interaction.guild)
-                roles: list = utils.getRoles(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
 
                 roleAdded: dict = dict()
-                for role in roles:
+                userStatus[userDo][i]["user_role_add_error"] = []
+                userStatus[userDo][i]["user_role_add_success"] = []
+
+                userStatus[userDo][i]["role_add_success"] = []
+                userStatus[userDo][i]["role_add_error"] = []
+                for role in utils.getRoles(userDoData, interaction.guild):
                     roleAdded[role] = []
                     if bool(userDoData.get("interact_both", True)):
-                        res: bool = await utils.addRole(user, role, reason=reason)
-                        if res:
+                        try:
+                            await utils.addRole(user, role, reason=reason)
+                        except Exception as e:
+                            userStatus[userDo][i]["user_role_add_error"].append(
+                                {"error": e,
+                                 "message":
+              f"Couldn't add role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"})
+                        finally:
+                            userStatus[userDo][i]["user_role_add_success"].append(
+                                {"message":
+                          f"Added role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"})
                             roleAdded[role].append(user)
+
                     for resUser in users:
-                        res: bool = await utils.addRole(resUser, role, reason=reason)
-                        if res:
+                        try:
+                            await utils.addRole(resUser, role, reason=reason)
+                        except Exception as e:
+                            userStatus[userDo][i]["role_add_error"].append({"error": e,
+                                 "message":
+                f"Couldn't add role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"})
+                        finally:
+                            userStatus[userDo][i]["role_add_success"].append(
+                                {"message":
+                  f"Added role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"})
                             roleAdded[role].append(resUser)
-                if duration > 0:
+                hasData = False
+                for itemK, itemV in roleAdded.items():
+                    if len(itemV) > 0:
+                        hasData = True
+                        break
+                if duration > 0 and hasData:
                     defaultArguments["duration"] = duration
                     startBackgroundTask(function=actionRemoveUserRoles,
                                         functionArgs=[roleAdded, str(userDoData.get("role_remove_reason", ""))],
                                         **defaultArguments)
         elif userDo == "role_remove":
-            for userDoData in userDoDataList:
+            for i in range(len(userDoDataList)):
+                userDoData = userDoDataList[i]
+                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 users: list = utils.getUsers(userDoData, interaction.guild)
-                roles: list = utils.getRoles(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
 
                 roleRemoved: dict = dict()
-                for role in roles:
+                userStatus[userDo][i]["user_role_remove_error"] = []
+                userStatus[userDo][i]["user_role_remove_success"] = []
+
+                userStatus[userDo][i]["role_remove_error"] = []
+                userStatus[userDo][i]["role_remove_success"] = []
+                for role in utils.getRoles(userDoData, interaction.guild):
                     roleRemoved[role] = []
                     if bool(userDoData.get("interact_both", True)):
-                        res: bool = await utils.removeRole(user, role, reason=reason)
-                        if res:
+                        try:
+                            await utils.removeRole(user, role, reason=reason)
+                        except Exception as e:
+                            userStatus[userDo][i]["user_role_remove_error"].append(
+                                {"error": e,
+                                 "message":
+            f"Couldn't remove role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"})
+                        finally:
+                            userStatus[userDo][i]["user_role_remove_success"].append(
+                                {"message":
+                     f"Removed role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"})
                             roleRemoved[role].append(user)
                     for resUser in users:
-                        res: bool = await utils.removeRole(resUser, role, reason=reason)
-                        if res:
+                        try:
+                            await utils.removeRole(resUser, role, reason=reason)
+                        except Exception as e:
+                            userStatus[userDo][i]["role_remove_error"].append(
+                                {"error": e,
+                                 "message":
+           f"Couldn't remove role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"})
+                        finally:
                             roleRemoved[role].append(resUser)
-                if duration > 0:
+                            userStatus[userDo][i]["role_remove_success"].append(
+                                {"message":
+              f"Removed role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"})
+                hasData = False
+                for itemK, itemV in roleRemoved.items():
+                    if len(itemV) > 0:
+                        hasData = True
+                        break
+                if duration > 0 and hasData:
                     defaultArguments["duration"] = duration
                     startBackgroundTask(function=actionAddUserRoles,
                                         functionArgs=[roleRemoved, str(userDoData.get("role_add_reason", ""))],
                                         **defaultArguments)
         elif userDo == "timeout":
-            for userDoData in userDoDataList:
+            for i in range(len(userDoDataList)):
+                userDoData = userDoDataList[i]
+                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
-                users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
-
+                if "until" not in userDoData.keys():
+                    userStatus[userDo][i]["error"] = "Until data is invalid! Format expected: YYYY-MM-DDTHH:MM:SS"
+                    break
+                else:
+                    try:
+                        strptime = datetime.strptime(str(userDoData.get("until")), "YYYY-MM-DDTHH:MM:SS")
+                    except Exception as e:
+                        userStatus[userDo][i]["error"] = {"error": e, "message":
+                            "Until data is invalid! Format expected: YYYY-MM-DDTHH:MM:SS"}
+                        break
                 timeoutedMembers: list = []
-                strptime = datetime.strptime(reason, "YYYY-MM-DDTHH:MM:SS")
                 if bool(userDoData.get("interact_both", True)):
-                    res: bool = await utils.timeoutUser(user, strptime, reason=reason)
-                    if res:
+                    try:
+                        await utils.timeoutUser(user, strptime, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["user_timeout_add_error"] = \
+                            {"error": e,
+                             "message":
+                                 f"Couldn't timeout user {user.name} : {user.id} to date {strptime}"}
+                    finally:
+                        userStatus[userDo][i]["user_timeout_add_success"] = \
+                            {"message":  f"Added timeout to user {user.name} : {user.id} to date {strptime}"}
                         timeoutedMembers.append(user)
-                for resUser in users:
-                    res: bool = await utils.timeoutUser(resUser, strptime, reason=reason)
-                    if res:
+                userStatus[userDo][i]["timeout_add_error"] = []
+                userStatus[userDo][i]["timeout_add_success"] = []
+                for resUser in utils.getUsers(userDoData, interaction.guild):
+                    try:
+                        await utils.timeoutUser(resUser, strptime, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["timeout_add_error"].append(
+                            {"error": e,
+                             "message":
+                                 f"Couldn't timeout user {resUser.name} : {resUser.id} to date {strptime}"})
+                    finally:
+                        userStatus[userDo][i]["timeout_add_success"].append(
+                            {"message": f"Added timeout to user {resUser.name} : {resUser.id} to date {strptime}"})
                         timeoutedMembers.append(resUser)
-                if duration > 0:
+                if duration > 0 and len(timeoutedMembers) > 0:
                     defaultArguments["duration"] = duration
                     startBackgroundTask(function=actionRemoveUserTimeout,
                                         functionArgs=[timeoutedMembers,
                                                       str(userDoData.get("timeout_remove_reason", ""))],
                                         **defaultArguments)
         elif userDo == "deafen":
-            for userDoData in userDoDataList:
+            for i in range(len(userDoDataList)):
+                userDoData = userDoDataList[i]
+                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
-                users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
 
                 deafenMembers: list = []
                 if bool(userDoData.get("interact_both", True)):
-                    res: bool = await utils.userDeafen(user, True, reason=reason)
-                    if res:
+                    try:
+                        await utils.userDeafen(user, True, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["user_deafen_add_error"] = \
+                            {"message": f"Couldn't deafen user {user.name} : {user.id} for reason {reason}",
+                             "error": e}
+                    finally:
+                        userStatus[userDo][i]["user_deafen_add_success"] = \
+                            {"message": f"Made user {user.name} : {user.id} deafen for reason {reason}"}
                         deafenMembers.append(user)
-                for resUser in users:
-                    res: bool = await utils.userDeafen(user, True, reason=reason)
-                    if res:
+                userStatus[userDo][i]["deafen_add_error"] = []
+                userStatus[userDo][i]["deafen_add_success"] = []
+                for resUser in utils.getUsers(userDoData, interaction.guild):
+                    userStatus[userDo][i]["deafen_add_success"] = []
+                    try:
+                        await utils.userDeafen(user, True, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["deafen_add_error"].append(
+                            {"message": f"Couldn't deafen user {user.name} : {user.id} for reason {reason}",
+                             "error": e})
+                    finally:
+                        userStatus[userDo][i]["deafen_add_success"].append(
+                            {"message": f"Made user {user.name} : {user.id} deafen for reason {reason}"})
                         deafenMembers.append(resUser)
 
-                if duration > 0:
+                if duration > 0 and len(deafenMembers) > 0:
                     defaultArguments["duration"] = duration
                     startBackgroundTask(function=actionRemoveUserDeafen,
                                         functionArgs=[deafenMembers, str(userDoData.get("deafen_remove_reason", ""))],
                                         **defaultArguments)
         elif userDo == "deafen_remove":
-            for userDoData in userDoDataList:
+            for i in range(len(userDoDataList)):
+                userDoData = userDoDataList[i]
+                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
 
                 removeDeafenMembers: list = []
                 if bool(userDoData.get("interact_both", True)):
-                    res: bool = await utils.userDeafen(user, False, reason=reason)
-                    if res:
+                    try:
+                        await utils.userDeafen(user, False, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["user_deafen_remove_error"] = \
+                            {"message": f"Couldn't undeafen user {user.name} : {user.id} for reason {reason}",
+                             "error": e}
+                    finally:
+                        userStatus[userDo][i]["user_deafen_remove_success"] = \
+                            {"message": f"Undeafen user {user.name} : {user.id} for reason {reason}"}
                         removeDeafenMembers.append(user)
+                userStatus[userDo][i]["deafen_remove_success"] = []
+                userStatus[userDo][i]["deafen_remove_error"] = []
                 for resUser in users:
-                    res: bool = await utils.userDeafen(user, False, reason=reason)
-                    if res:
+                    try:
+                        await utils.userDeafen(resUser, False, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["deafen_remove_error"].append({"error": e,
+                                 "message":
+                                     f"Couldn't undeafen user {resUser.name} : {resUser.id} for reason {reason}"})
+                    finally:
+                        userStatus[userDo][i]["deafen_remove_success"].append({"error": e,
+                                  "message":
+                                      f"Uundeafened user {resUser.name} : {resUser.id} for reason {reason}"})
                         removeDeafenMembers.append(resUser)
 
-                if duration > 0:
+                if duration > 0 and len(removeDeafenMembers) > 0:
                     defaultArguments["duration"] = duration
                     startBackgroundTask(function=actionUserDeafen,
                                         functionArgs=[removeDeafenMembers, str(userDoData.get("deafen_reason", ""))],
                                         **defaultArguments)
         elif userDo == "mute":
-            for userDoData in userDoDataList:
+            for i in range(len(userDoDataList)):
+                userDoData = userDoDataList[i]
+                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
                 removeMutedMembers: list = []
 
                 if bool(userDoData.get("interact_both", True)):
-                    res: bool = await utils.userMute(user, True, reason=reason)
-                    if res:
+                    try:
+                        await utils.userMute(user, True, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["user_mute_add_error"] = {"message":
+                                   f"Couldn't muted user {user.name} | {user.id} for reason {reason}", "error": e}
+                    finally:
+                        userStatus[userDo][i]["user_mute_add_success"] = {"message":
+                                              f"Muted user {user.name} | {user.id} for reason {reason}"}
                         removeMutedMembers.append(user)
+                userStatus[userDo][i]["mute_add_error"] = []
+                userStatus[userDo][i]["mute_add_success"] = []
                 for resUser in users:
-                    res: bool = await utils.userMute(user, True, reason=reason)
-                    if res:
+                    try:
+                        await utils.userMute(resUser, True, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["mute_add_error"].append({"message":
+                                   f"Couldn't muted user {user.name} | {user.id} for reason {reason}", "error": e})
+                    finally:
+                        userStatus[userDo][i]["mute_add_success"].append({"message":
+                                             f"Muted user {resUser.name} | {resUser.id} for reason {reason}"})
                         removeMutedMembers.append(resUser)
 
-                if duration > 0:
+                if duration > 0 and len(removeMutedMembers) > 0:
                     defaultArguments["duration"] = duration
                     startBackgroundTask(function=actionRemoveUserMute,
                                         functionArgs=[removeMutedMembers,
                                                       str(userDoData.get("mute_remove_reason", ""))],
                                         **defaultArguments)
         elif userDo == "mute_remove":
-            for userDoData in userDoDataList:
+            for i in range(len(userDoDataList)):
+                userDoData = userDoDataList[i]
+                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
 
                 removeMutedMembers: list = []
                 if bool(userDoData.get("interact_both", True)):
-                    res: bool = await utils.userMute(user, False, reason=reason)
-                    if res:
+                    try:
+                        await utils.userMute(user, False, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["user_mute_remove_error"] = {"error": e,
+                                  "message": f"Couldn't unmute user {user.name} | {user.id} for reason {reason}"}
+                    finally:
+                        userStatus[userDo][i]["user_mute_remove_success"] = {
+                                  "message": f"Unmuted user {user.name} | {user.id} for reason {reason}"}
                         removeMutedMembers.append(user)
+
+                userStatus[userDo][i]["mute_remove_success"] = []
+                userStatus[userDo][i]["mute_remove_error"] = []
                 for resUser in users:
-                    res: bool = await utils.userMute(user, False, reason=reason)
-                    if res:
+                    try:
+                        await utils.userMute(resUser, False, reason=reason)
+                    except Exception as e:
+                        userStatus[userDo][i]["mute_remove_error"].append({"error": e,
+                        "message": f"Couldn't unmute user {resUser.name} | {resUser.id} for reason {reason}"})
+                    finally:
+                        userStatus[userDo][i]["mute_remove_success"] = {
+                            "message": f"Unmuted user {resUser.name} | {resUser.id} for reason {reason}"}
                         removeMutedMembers.append(resUser)
 
-                if duration > 0:
+                if duration > 0 and len(removeMutedMembers) > 0:
                     defaultArguments["duration"] = duration
                     startBackgroundTask(function=actionUserMute,
                                         functionArgs=[removeMutedMembers, str(userDoData.get("mute_reason", ""))],
@@ -461,7 +676,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                 duration: int = int(rolesToCreate.get("duration", -1))
                 if duration > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=utils.eleteRole,
+                    startBackgroundTask(function=utils.deleteRole,
                                         functionArgs=[role, str(rolesToCreate.get("role_delete_reason", ""))],
                                         **defaultArguments)
         elif guildToDo == "role_delete":
@@ -485,8 +700,8 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                 edited: dict[discord.Role, dict] = dict()
                 for role in roles:
                     prevStatus: dict = utils.getRoleData(role)
-                    res: bool = await utils.editRole(rolesToEdit, role)
-                    if res:
+                    roleEditData: dict = await utils.editRole(rolesToEdit, role)
+                    if roleEditData["role_edit"]:
                         edited[role] = prevStatus
                 duration: int = int(rolesToEdit.get("duration", -1))
                 if duration > 0:
