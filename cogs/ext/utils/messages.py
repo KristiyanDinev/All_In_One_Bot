@@ -6,6 +6,7 @@ import cogs.ext.utils.utils as utils
 import cogs.ext.utils.buttons as buttons
 import cogs.ext.utils.actions as actions
 import cogs.ext.utils.placeholders as placeholders_util
+import json
 
 
 def isEmbedEph(embed: discord.Embed, eph: str) -> bool:
@@ -273,7 +274,7 @@ async def buildDMData(bot: commands.Bot, command: str, msg: str, executionPath: 
 
 async def MainBuildError(bot: commands.Bot, commandName: str, errorPath: str, error,
                          placeholders: dict, interaction: discord.Interaction = None,
-                         ctx: discord.ext.commands.context.Context | None = None):
+                         ctx: discord.ext.commands.context.Context | None = None) -> dict:
     if len(errorPath.replace(" ", "")) > 0:
         return await __handleOneMessage(bot, commandName, ctx, errorPath, interaction, errorPath,
                                         dict(), placeholders, error)
@@ -356,7 +357,8 @@ async def handleMessage(bot: commands.Bot, commandName: str, executionPath: str,
     return statusData
 
 
-async def handleError(bot: commands.Bot, commandName: str, executionPath: str, error, placeholders: dict = dict(),
+async def handleError(bot: commands.Bot, commandName: str, executionPath: str, error, logs: dict = dict(),
+                      placeholders: dict = dict(),
                       interaction: discord.Interaction | None = None,
                       ctx: discord.ext.commands.context.Context | None = None) -> dict:
     errorData: dict = {"error": False, "error_actions": False}
@@ -370,7 +372,9 @@ async def handleError(bot: commands.Bot, commandName: str, executionPath: str, e
                 DMUser=None)
         except Exception as ex:
             if utils.configManager.isPrintError():
-                print("original error:", error, "follow up error:", ex)
+                print("original error:", error, "follow up error:", ex, "logs: ", json.dumps(logs, sort_keys=True,
+                                                                                             indent=4,
+                                                                                             separators=(',', ': ')))
             errorData["error"] = False
             errorData["actions"] = False
         finally:

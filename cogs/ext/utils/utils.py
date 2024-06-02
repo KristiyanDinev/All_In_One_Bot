@@ -132,32 +132,39 @@ def separateThread(loop, func, *args):
     asyncio.run_coroutine_threadsafe(func(*args), loop)
 
 
-async def giveRoleToUser(user: discord.User, role: discord.Role, reason: str = ""):
-    await user.add_roles(role, reason=reason)
+async def giveRoleToUser(member: discord.Member, role: discord.Role, reason: str = ""):
+    await member.add_roles(role, reason=reason)
 
 
 async def removeRoleToUser(member: discord.Member, role: discord.Role, reason: str = ""):
     await member.remove_roles(role, reason=reason)
 
 
-async def createRoleWithDisplayIcon(roleData: dict, guild: discord.Guild) -> discord.Role | None:
-    try:
+async def createRole(roleData: dict, guild: discord.Guild) -> discord.Role:
+    if "ROLE_ICONS" in guild.features:
         role: discord.Role = await guild.create_role(reason=roleData.get("reason", ""),
                                                      name=roleData.get("name", "No Name Given"),
-                                                     display_icon=roleData.get("display_icon"),
-                                                     color=getColour(str(roleData.get("color", ""))),
+                                                     display_icon=roleData.get("display_icon", ""),
+                                                     color=getColour(str(roleData.get("color", "random"))),
                                                      mentionable=bool(roleData.get("mentionable", True)),
                                                      hoist=bool(roleData.get("hoist", True)),
                                                      permissions=getDiscordPermission(
                                                          dict(roleData.get("permissions", {}))))
-        pos: str = str(roleData.get("position", ""))
-        if pos.isdigit():
-            await role.edit(position=int(pos))
+    else:
+        role: discord.Role = await guild.create_role(reason=roleData.get("reason", ""),
+                                                     name=roleData.get("name", "No Name Given"),
+                                                     color=getColour(str(roleData.get("color", "random"))),
+                                                     mentionable=bool(roleData.get("mentionable", True)),
+                                                     hoist=bool(roleData.get("hoist", True)),
+                                                     permissions=getDiscordPermission(
+                                                         dict(roleData.get("permissions", {}))))
+    pos: str = str(roleData.get("position", ""))
+    if pos.isdigit():
+        await role.edit(position=int(pos))
 
-        for user in getUsers(roleData, guild):
-            await giveRoleToUser(user, role, str(roleData.get("give_reason", "")))
-    except Exception:
-        return None
+    for user in getUsers(roleData, guild):
+        await giveRoleToUser(user, role, str(roleData.get("give_reason", "")))
+    return role
 
 
 async def createRoleNoDisplayIcon(roleData: dict, guild: discord.Guild) -> discord.Role | None:
@@ -180,23 +187,11 @@ async def createRoleNoDisplayIcon(roleData: dict, guild: discord.Guild) -> disco
         return None
 
 
-async def deleteRoleFromData(roleData: dict, guild: discord.Guild) -> List[discord.Role] | None:
-    roles = getRoles(roleData, guild)
-    deleted = []
-    reason = str(roleData.get("reason", ""))
-    for r in roles:
-        try:
-            await r.delete(reason=reason)
-            deleted.append(r)
-        except Exception:
-            continue
-    return deleted
-
-
 async def deleteRole(role: discord.Role, reason: str):
     await role.delete(reason=reason)
 
-def getRoles(roleData: dict, guild: discord.Guild) -> list:
+
+def getRoles(roleData: dict, guild: discord.Guild) -> List[discord.Role]:
     try:
         roleId: str = str(roleData.get("role_id", ""))
         roleName: str = str(roleData.get("role_name", ""))
@@ -277,7 +272,7 @@ def getRoleData(role: discord.Role) -> dict:
     return roleData
 
 
-async def editRole(roleData: dict, role: discord.Role) -> dict:
+async def editRole(roleData: dict, role: discord.Role):
     position: str | None = str(roleData.get("position", None))
     reason: str = str(roleData.get("reason", ""))
     if not isinstance(position, int):
@@ -289,58 +284,28 @@ async def editRole(roleData: dict, role: discord.Role) -> dict:
     mentionable: bool = bool(bool(roleData.get("mentionable", role.mentionable)))
     permissions: discord.Permissions = getDiscordPermission(dict(roleData.get("permissions", {})))
 
-    roleStatus: dict = dict()
     if "ROLE_ICONS" in role.guild.features:
-        try:
-            await role.edit(name=name, reason=reason, colour=colour, hoist=hoist, mentionable=mentionable,
-                            position=position, permissions=permissions, display_icon=roleData.get("display_icon", None))
-        except Exception as e:
-            roleStatus["role_edit_error"] = e
-        finally:
-            roleStatus["role_edit"] = True
+        await role.edit(name=name, reason=reason, colour=colour, hoist=hoist, mentionable=mentionable,
+                        position=position, permissions=permissions, display_icon=roleData.get("display_icon", None))
+
     else:
-        try:
-            await role.edit(name=name, reason=str(roleData.get("reason", "")), colour=colour, hoist=hoist,
-                            mentionable=mentionable, position=position, permissions=permissions)
-        except Exception as e:
-            roleStatus["role_edit_error"] = e
-        finally:
-            roleStatus["role_edit"] = True
+        await role.edit(name=name, reason=str(roleData.get("reason", "")), colour=colour, hoist=hoist,
+                        mentionable=mentionable, position=position, permissions=permissions)
 
     if "users" in roleData.keys():
         users: list = roleData.get("users", [])
         if not isinstance(users, list):
-            return roleStatus
-        roleStatus["role_remove_user_error"] = []
-        roleStatus["role_remove_user_success"] = []
-
-        roleStatus["role_add_user_error"] = []
-        roleStatus["role_add_user_success"] = []
+            return
         for member in role.members:
             if member.id in users:
                 continue
-            try:
-                await removeRole(member, role, reason=reason)
-            except Exception as e:
-                roleStatus["role_remove_user_error"].append({"error": e, "message":
-                    f"Couldn't remove the role {role.name} : {role.id} from {member.name} : {member.id}"})
-            finally:
-                roleStatus["role_remove_user_success"].append({"message":
-                                     f"Removed the role {role.name} : {role.id} from {member.name} : {member.id}"})
+            await removeRole(member, role, reason=reason)
 
         for userId in users:
             member: discord.Member | None = getMemberGuild(role.guild, userId)
             if member is None or memberHasRole(member, role):
-                roleStatus["role_add_user_error"].append({"message":
-                                    f"there is no member with ID {userId} or member already has this role"})
                 continue
-            try:
-                await addRole(member, role, reason=reason)
-            except Exception as e:
-                roleStatus["role_add_user_error"].append({"error": e, "message":
-                         f"Couldn't add role {role.name} : {role.id} to member {member.name} : {member.id}"})
-            finally:
-                roleStatus["role_add_user_success"].append({"message": True})
+            await addRole(member, role, reason=reason)
 
 
 def getColour(color: str) -> discord.Colour:
@@ -420,8 +385,7 @@ def getGuildData(guild: discord.Guild) -> dict:
     return data
 
 
-async def editGuild(guildData: dict, guild: discord.Guild, reason: str = "") -> bool:
-    success = False
+async def editGuild(guildData: dict, guild: discord.Guild, reason: str = ""):
     for key in guildData.keys():
         if key == "owner_id":
             ownerId: str = str(guildData.get("owner_id", ""))
@@ -429,214 +393,116 @@ async def editGuild(guildData: dict, guild: discord.Guild, reason: str = "") -> 
                 ownerId = int(ownerId)
             else:
                 ownerId = 0
-            owner: discord.Member | None = getMemberGuild(guild, ownerId)
-            if owner is not None:
-                try:
-                    await guild.edit(reason=reason, owner=owner)
-                    success = True
-                except Exception:
-                    continue
+            await guild.edit(reason=reason, owner=getMemberGuild(guild, ownerId))
         elif key == "afk_channel_id":
             afk_channel: str = str(guildData.get("afk_channel_id", ""))
             afk_channel_obj = getVoiceChannelGuild(guild, int(afk_channel) if afk_channel.isdigit() else 0)
             if afk_channel_obj != guild.afk_channel:
-                try:
-                    await guild.edit(reason=reason, afk_channel=afk_channel_obj)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, afk_channel=afk_channel_obj)
         elif key == "system_channel_id":
             system_channel: str = str(guildData.get("system_channel_id", ""))
             system_channel_obj = getVoiceChannelGuild(guild,
                                                       int(system_channel) if system_channel.isdigit() else 0)
             if system_channel_obj != guild.system_channel:
-                try:
-                    await guild.edit(reason=reason, afk_channel=system_channel_obj)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, afk_channel=system_channel_obj)
         elif key == "afk_timeout":
             afk_timeout: str = str(guildData.get("afk_timeout", ""))
             if afk_timeout.isdigit() and int(afk_timeout) != guild.afk_timeout:
-                try:
-                    await guild.edit(reason=reason, afk_timeout=int(afk_timeout))
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, afk_timeout=int(afk_timeout))
         elif key == "rules_channel_id":
             rules_channel: str = str(guildData.get("rules_channel_id", ""))
             rules_channel_obj = getTextChannel(guild, int(rules_channel) if rules_channel.isdigit() else 0)
             if rules_channel_obj != guild.rules_channel:
-                try:
-                    await guild.edit(reason=reason, rules_channel=rules_channel_obj)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, rules_channel=rules_channel_obj)
         elif key == "public_updates_channel_id":
             public_updates_channel: str = str(guildData.get("public_updates_channel_id", ""))
             public_updates_channel_obj = getTextChannel(guild,
                                                         int(public_updates_channel)
                                                         if public_updates_channel.isdigit() else 0)
             if public_updates_channel_obj != guild.rules_channel:
-                try:
-                    await guild.edit(reason=reason, public_updates_channel=public_updates_channel_obj)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, public_updates_channel=public_updates_channel_obj)
         elif key == "widget_channel_id":
             widget_channel: str = str(guildData.get("widget_channel_id", ""))
             widget_channel_obj = getTextChannel(guild, int(widget_channel) if widget_channel.isdigit() else 0)
             if widget_channel_obj != guild.widget_channel:
-                try:
-                    await guild.edit(reason=reason, widget_channel=widget_channel_obj)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, widget_channel=widget_channel_obj)
         elif key == "safety_alerts_channel_id":
             safety_alerts_channel: str = str(guildData.get("safety_alerts_channel_id", ""))
-            try:
-                if safety_alerts_channel.isdigit() and int(
-                        safety_alerts_channel) != guild.safety_alerts_channel.id:
-                    await guild.edit(reason=reason,
-                                     safety_alerts_channel=getTextChannel(guild, int(safety_alerts_channel)))
-                success = True
-            except Exception:
-                continue
+            if safety_alerts_channel.isdigit() and int(
+                    safety_alerts_channel) != guild.safety_alerts_channel.id:
+                await guild.edit(reason=reason,
+                                 safety_alerts_channel=getTextChannel(guild, int(safety_alerts_channel)))
         elif key == "description":
             description = guildData.get("description")
             if guild.description != description:
-                try:
-                    await guild.edit(reason=reason, description=description)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, description=description)
         elif key == "icon":
             icon = guildData.get("icon")
             if icon is bytes and guild.icon != icon:
-                try:
-                    await guild.edit(reason=reason, icon=icon)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, icon=icon)
         elif key == "name":
             name: str = str(guildData.get("name", ""))
             if name is not None and guild.name != name and len(name.replace(" ", "")) > 0:
-                try:
-                    await guild.edit(reason=reason, name=name)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, name=name)
         elif key == "banner":
             banner = guildData.get("banner")
             if guild.banner != banner:
-                try:
-                    await guild.edit(reason=reason, banner=banner)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, banner=banner)
         elif key == "splash":
             splash = guildData.get("splash")
             if splash is bytes and rq.get(guild.splash.url).content != splash:
-                try:
-                    await guild.edit(reason=reason, splash=splash)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, splash=splash)
         elif key == "discovery_splash":
             discovery_splash = guildData.get("discovery_splash")
             if discovery_splash is bytes and rq.get(guild.discovery_splash.url).content != discovery_splash:
-                try:
-                    await guild.edit(reason=reason, discovery_splash=discovery_splash)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, discovery_splash=discovery_splash)
         elif key == "default_notifications":
             default_notifications: discord.NotificationLevel | None = getattr(discord.NotificationLevel,
                                                                               str(guildData.get(
                                                                                   "default_notifications")).lower(),
                                                                               None)
             if default_notifications is not None and guild.default_notifications != default_notifications:
-                try:
-                    await guild.edit(reason=reason, default_notifications=default_notifications)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, default_notifications=default_notifications)
         elif key == "verification_level":
             verification_level: discord.VerificationLevel | None = getattr(discord.VerificationLevel,
                                                                            str(guildData.get(
                                                                                "verification_level")).lower(),
                                                                            None)
             if verification_level is not None and guild.verification_level != verification_level:
-                try:
-                    await guild.edit(reason=reason, verification_level=verification_level)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, verification_level=verification_level)
         elif key == "content_filter":
             explicit_content_filter: discord.ContentFilter | None = getattr(discord.ContentFilter,
                                                                             str(guildData.get(
                                                                                 "content_filter")).lower(),
                                                                             None)
             if explicit_content_filter is not None and guild.explicit_content_filter != explicit_content_filter:
-                try:
-                    await guild.edit(reason=reason, explicit_content_filter=explicit_content_filter)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, explicit_content_filter=explicit_content_filter)
         elif key == "preferred_locale":
             preferred_locale: discord.Locale | None = getattr(discord.Locale,
                                                               str(guildData.get(
                                                                   "preferred_locale")).lower(),
                                                               None)
             if preferred_locale is not None and preferred_locale != guild.preferred_locale:
-                try:
-                    await guild.edit(reason=reason, preferred_locale=preferred_locale)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, preferred_locale=preferred_locale)
         elif key == "mfa_level":
             mfa_level: discord.MFALevel | None = getattr(discord.MFALevel,
                                                          str(guildData.get("mfa_level")).lower(),
                                                          None)
             if mfa_level is not None and mfa_level != guild.mfa_level:
-                try:
-                    await guild.edit(reason=reason, mfa_level=mfa_level)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, mfa_level=mfa_level)
         elif key == "vanity_code":
             vanity_code: str | None = guildData.get("vanity_code", None)
             if vanity_code is not None:
-                try:
-                    await guild.edit(reason=reason, vanity_code=vanity_code)
-                    success = True
-                except Exception:
-                    continue
+                await guild.edit(reason=reason, vanity_code=vanity_code)
         elif key == "discoverable":
-            try:
-                await guild.edit(reason=reason, discoverable=bool(guildData.get("discoverable")))
-                success = True
-            except Exception:
-                continue
+            await guild.edit(reason=reason, discoverable=bool(guildData.get("discoverable")))
         elif key == "invites_disabled":
-            try:
-                await guild.edit(reason=reason, invites_disabled=bool(guildData.get("invites_disabled")))
-                success = True
-            except Exception:
-                continue
+            await guild.edit(reason=reason, invites_disabled=bool(guildData.get("invites_disabled")))
         elif key == "raid_alerts_disabled":
-            try:
-                await guild.edit(reason=reason,
-                                 raid_alerts_disabled=bool(guildData.get("raid_alerts_disabled")))
-                success = True
-            except Exception:
-                continue
+            await guild.edit(reason=reason,
+                             raid_alerts_disabled=bool(guildData.get("raid_alerts_disabled")))
         elif key == "community":
-            try:
-                await guild.edit(reason=reason, community=bool(guildData.get("community")))
-                success = True
-            except Exception:
-                continue
+            await guild.edit(reason=reason, community=bool(guildData.get("community")))
 
     return success
 
@@ -673,20 +539,16 @@ def getUsers(userData: dict, guild: discord.Guild) -> List[discord.Member]:
     return users
 
 
-async def createCategory(categoryData: dict, guild: discord.Guild) -> discord.CategoryChannel | None:
-    try:
-        position = categoryData.get("position")
-        if not isinstance(position, int):
-            position = 1
-        permissions = categoryData.get("permissions")
-        if not isinstance(permissions, dict):
-            permissions = dict()
-        category: discord.CategoryChannel = await guild.create_category(
-            name=str(categoryData.get("name", "CategoryName")), position=position,
-            reason=str(categoryData.get("reason", "")), overwrites=getPermissionsMapping(permissions, guild))
-        return category
-    except Exception:
-        return None
+async def createCategory(categoryData: dict, guild: discord.Guild) -> discord.CategoryChannel:
+    position = categoryData.get("position")
+    if not isinstance(position, int):
+        position = 1
+    permissions = categoryData.get("permissions")
+    if not isinstance(permissions, dict):
+        permissions = dict()
+    return await guild.create_category(
+        name=str(categoryData.get("name", "CategoryName")), position=position,
+        reason=str(categoryData.get("reason", "")), overwrites=getPermissionsMapping(permissions, guild))
 
 
 def getCategoryData(category: discord.CategoryChannel) -> dict:
@@ -704,11 +566,7 @@ def getCategoryData(category: discord.CategoryChannel) -> dict:
 
 
 async def deleteCategory(category: discord.CategoryChannel, reason: str = "") -> bool:
-    try:
-        await category.delete(reason=reason)
-        return True
-    except Exception:
-        return False
+    await category.delete(reason=reason)
 
 
 def getPermissionsMapping(permissions: dict, guild: discord.Guild) -> Mapping[
@@ -858,7 +716,7 @@ def getChannels(channelData: dict, guild: discord.Guild) -> list:
     return channels
 
 
-async def createChannel(channelData: dict, guild: discord.Guild) -> list:
+async def createChannel(channelData: dict, guild: discord.Guild) -> List[discord.abc.GuildChannel]:
     channel_type: str = str(channelData.get("type")).lower()
     permissions = channelData.get("permissions")
     if not isinstance(permissions, dict):
@@ -946,10 +804,7 @@ async def createChannel(channelData: dict, guild: discord.Guild) -> list:
 
             available_tags = channelData.get("available_tags")
             if isinstance(available_tags, list):
-                try:
-                    await channel.edit(available_tags=available_tags)
-                except Exception:
-                    pass
+                await channel.edit(available_tags=available_tags)
 
             createdChannels.append(channel)
         else:
@@ -977,18 +832,11 @@ async def createChannel(channelData: dict, guild: discord.Guild) -> list:
     return createdChannels
 
 
-async def deleteChannel(
-        channel: Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel],
-        reason: str = "") -> bool:
-    try:
-        await channel.delete(reason=reason)
-        return True
-    except Exception:
-        return False
+async def deleteChannel(channel: discord.abc.GuildChannel, reason: str = ""):
+    await channel.delete(reason=reason)
 
 
-def getChannelData(
-        channel: Union[discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel]) -> dict:
+def getChannelData(channel: discord.abc.GuildChannel) -> dict:
     data: dict = dict()
     data["name"] = channel.name
     data["permissions"] = getPermissionsDataFromMapping(channel.overwrites)
@@ -1024,101 +872,83 @@ def getChannelData(
 
 
 async def editChannel(channelData: dict,
-                      channel: Union[
-                          discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.ForumChannel]) -> bool:
-    try:
-        channelDataCopy = channelData.copy()
-        channelDataCopy["category_name"] = channelDataCopy.pop("new_category_name")
-        channelDataCopy["category_id"] = channelDataCopy.pop("new_category_id")
-        permissions = channelDataCopy.get("permissions")
-        if not isinstance(permissions, dict):
-            permissions = dict()
-        overwrites = getPermissionsMapping(permissions, channel.guild)
-        video_quality_mode: discord.VideoQualityMode | None = getattr(discord.VideoQualityMode,
-                                                                      str(channelDataCopy.get("video_quality_mode",
-                                                                                              "")),
-                                                                      None)
-        for new_category in getCategories(channelDataCopy, channel.guild):
-            position: int = channelDataCopy.get("position")
-            if isinstance(position, int):
-                await channel.edit(position=position)
+                      channel: discord.abc.GuildChannel):
+    channelDataCopy = channelData.copy()
+    channelDataCopy["category_name"] = channelDataCopy.pop("new_category_name")
+    channelDataCopy["category_id"] = channelDataCopy.pop("new_category_id")
+    permissions = channelDataCopy.get("permissions")
+    if not isinstance(permissions, dict):
+        permissions = dict()
+    overwrites = getPermissionsMapping(permissions, channel.guild)
+    video_quality_mode: discord.VideoQualityMode | None = getattr(discord.VideoQualityMode,
+                                                                  str(channelDataCopy.get("video_quality_mode",
+                                                                                          "")),
+                                                                  None)
+    for new_category in getCategories(channelDataCopy, channel.guild):
+        position: int = channelDataCopy.get("position")
+        if isinstance(position, int):
+            await channel.edit(position=position)
 
-            slowmode_delay: int = channelDataCopy.get("slowmode_delay")
-            if isinstance(slowmode_delay, int):
-                await channel.edit(slowmode_delay=slowmode_delay)
+        slowmode_delay: int = channelDataCopy.get("slowmode_delay")
+        if isinstance(slowmode_delay, int):
+            await channel.edit(slowmode_delay=slowmode_delay)
 
-            if isinstance(channel, discord.TextChannel):
-                await channel.edit(name=str(channelDataCopy.get("new_name", "NewChannelName")),
-                                   reason=str(channelDataCopy.get("reason", "")),
-                                   nsfw=bool(channelDataCopy.get("nsfw", False)),
-                                   sync_permissions=bool(channelDataCopy.get("sync_permissions", False)),
-                                   category=new_category,
-                                   overwrites=overwrites)
-                if "topic" in channelDataCopy.keys():
-                    await channel.edit(topic=str(channelDataCopy.get("topic")))
+        new_name = str(channelDataCopy.get("new_name", "NewChannelName"))
+        reason = str(channelDataCopy.get("reason", ""))
+        nsfw = bool(channelDataCopy.get("nsfw", False))
+        sync_permissions = bool(channelDataCopy.get("sync_permissions", False))
+        if isinstance(channel, discord.TextChannel):
+            await channel.edit(name=new_name, reason=reason, nsfw=nsfw, sync_permissions=sync_permissions,
+                               category=new_category, overwrites=overwrites)
+            if "topic" in channelDataCopy.keys():
+                await channel.edit(topic=str(channelDataCopy.get("topic")))
 
-                default_auto_archive_duration: int = channelDataCopy.get("default_auto_archive_duration")
-                if isinstance(default_auto_archive_duration, int):
-                    await channel.edit(default_auto_archive_duration=default_auto_archive_duration)
+            default_auto_archive_duration: int = channelDataCopy.get("default_auto_archive_duration")
+            if isinstance(default_auto_archive_duration, int):
+                await channel.edit(default_auto_archive_duration=default_auto_archive_duration)
 
-                default_thread_slowmode_delay: int = channelDataCopy.get("default_thread_slowmode_delay")
-                if isinstance(default_thread_slowmode_delay, int):
-                    await channel.edit(default_thread_slowmode_delay=default_thread_slowmode_delay)
-            elif isinstance(channel, discord.VoiceChannel):
-                await channel.edit(name=str(channelDataCopy.get("new_name", "NewChannelName")),
-                                   reason=str(channelDataCopy.get("reason", "")),
-                                   nsfw=bool(channelDataCopy.get("nsfw", False)),
-                                   sync_permissions=bool(channelDataCopy.get("sync_permissions", False)),
-                                   category=new_category, overwrites=overwrites,
-                                   rtc_region=None if not isinstance(channelDataCopy.get("rtc_region", None), str)
-                                   else channelDataCopy.get("rtc_region"))
+            default_thread_slowmode_delay: int = channelDataCopy.get("default_thread_slowmode_delay")
+            if isinstance(default_thread_slowmode_delay, int):
+                await channel.edit(default_thread_slowmode_delay=default_thread_slowmode_delay)
+        elif isinstance(channel, discord.VoiceChannel):
+            await channel.edit(name=new_name, reason=reason, nsfw=nsfw, sync_permissions=sync_permissions,
+                               category=new_category, overwrites=overwrites,
+                               rtc_region=None if not isinstance(channelDataCopy.get("rtc_region", None), str)
+                               else channelDataCopy.get("rtc_region"))
 
-                user_limit: int = channelDataCopy.get("user_limit")
-                if isinstance(user_limit, int):
-                    await channel.edit(user_limit=user_limit)
-                bitrate: int = channelDataCopy.get("bitrate")
-                if isinstance(bitrate, int):
-                    await channel.edit(bitrate=bitrate)
+            user_limit: int = channelDataCopy.get("user_limit")
+            if isinstance(user_limit, int):
+                await channel.edit(user_limit=user_limit)
+            bitrate: int = channelDataCopy.get("bitrate")
+            if isinstance(bitrate, int):
+                await channel.edit(bitrate=bitrate)
 
-                if video_quality_mode is not None:
-                    await channel.edit(video_quality_mode=video_quality_mode)
-            elif isinstance(channel, discord.StageChannel):
-                await channel.edit(name=str(channelDataCopy.get("new_name", "NewChannelName")),
-                                   reason=str(channelDataCopy.get("reason", "")),
-                                   nsfw=bool(channelDataCopy.get("nsfw", False)),
-                                   sync_permissions=bool(channelDataCopy.get("sync_permissions", False)),
-                                   category=new_category, overwrites=overwrites,
-                                   rtc_region=None if not isinstance(channelDataCopy.get("rtc_region", None), str)
-                                   else channelDataCopy.get("rtc_region"))
+            if video_quality_mode is not None:
+                await channel.edit(video_quality_mode=video_quality_mode)
+        elif isinstance(channel, discord.StageChannel):
+            await channel.edit(name=new_name, reason=reason, nsfw=nsfw, sync_permissions=sync_permissions,
+                               category=new_category, overwrites=overwrites,
+                               rtc_region=None if not isinstance(channelDataCopy.get("rtc_region", None), str)
+                               else channelDataCopy.get("rtc_region"))
 
-                user_limit: int = channelDataCopy.get("user_limit")
-                if isinstance(user_limit, int):
-                    await channel.edit(user_limit=user_limit)
+            user_limit: int = channelDataCopy.get("user_limit")
+            if isinstance(user_limit, int):
+                await channel.edit(user_limit=user_limit)
 
-                if video_quality_mode is not None:
-                    await channel.edit(video_quality_mode=video_quality_mode)
-            elif isinstance(channel, discord.ForumChannel):
-                await channel.edit(name=str(channelDataCopy.get("new_name", "NewChannelName")),
-                                   reason=str(channelDataCopy.get("reason", "")),
-                                   nsfw=bool(channelDataCopy.get("nsfw", False)),
-                                   sync_permissions=bool(channelDataCopy.get("sync_permissions", False)),
-                                   category=new_category,
-                                   overwrites=overwrites)
+            if video_quality_mode is not None:
+                await channel.edit(video_quality_mode=video_quality_mode)
+        elif isinstance(channel, discord.ForumChannel):
+            await channel.edit(name=new_name, reason=reason, nsfw=nsfw, sync_permissions=sync_permissions,
+                               category=new_category, overwrites=overwrites)
 
-                if "topic" in channelDataCopy.keys():
-                    await channel.edit(topic=str(channelDataCopy.get("topic")))
+            if "topic" in channelDataCopy.keys():
+                await channel.edit(topic=str(channelDataCopy.get("topic")))
 
-                default_auto_archive_duration: int = channelDataCopy.get("default_auto_archive_duration")
-                if isinstance(default_auto_archive_duration, int):
-                    await channel.edit(default_auto_archive_duration=default_auto_archive_duration)
+            default_auto_archive_duration: int = channelDataCopy.get("default_auto_archive_duration")
+            if isinstance(default_auto_archive_duration, int):
+                await channel.edit(default_auto_archive_duration=default_auto_archive_duration)
 
-                available_tags = channelData.get("available_tags")
-                if isinstance(available_tags, list):
-                    try:
-                        await channel.edit(available_tags=available_tags)
-                    except Exception:
-                        pass
+            available_tags = channelData.get("available_tags")
+            if isinstance(available_tags, list):
+                await channel.edit(available_tags=available_tags)
 
-        return True
-    except Exception:
-        return False

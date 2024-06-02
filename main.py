@@ -138,8 +138,8 @@ if __name__ == "__main__":
 
 # TODO LIST
 # + handle reply line 22 in messages.py
-# + make sure line 54 in actions.py throws error
-# + fix all `async def action**(...)` in actions.py
+# + handle errors with logs when action doesn't have `duration`
+# + make logs more customizable
 # + Do errors
 # + continue with guild actions
 
