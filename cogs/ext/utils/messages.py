@@ -6,7 +6,6 @@ import cogs.ext.utils.utils as utils
 import cogs.ext.utils.buttons as buttons
 import cogs.ext.utils.actions as actions
 import cogs.ext.utils.placeholders as placeholders_util
-import json
 
 
 def isEmbedEph(embed: discord.Embed, eph: str) -> bool:
@@ -31,7 +30,7 @@ async def handleMessageResponse(msg: str | None, embed: discord.Embed | None, bu
                 await interaction.response.send_message(embed=embed, ephemeral=isEph)
         elif ctx is not None:
             await ctx.reply(embed=embed, ephemeral=isEph)
-            await ctx.send(embed=embed)
+            #await ctx.send(embed=embed)
         if channel is not None:
             await channel.send(embed=embed)
         if DMUser is not None:
@@ -45,11 +44,7 @@ async def handleMessageResponse(msg: str | None, embed: discord.Embed | None, bu
             else:
                 await interaction.response.send_message(msg, ephemeral=isEph)
         elif ctx is not None:
-            try:
-                await ctx.reply(msg, ephemeral=isEph)
-                await ctx.reply(msg, ephemeral=isEph)
-            except Exception as e:
-                print(e)
+            await ctx.reply(msg, ephemeral=isEph)
             #await ctx.send(msg)
         if channel is not None:
             await channel.send(msg)
@@ -137,15 +132,16 @@ async def sendResponse(mainData: dict, DMUser: discord.User | None, interaction:
 async def MainBuild(bot: commands.Bot, commandName: str, executionPath: str, placeholders: dict,
                     interaction: discord.Interaction | None = None,
                     ctx: discord.ext.commands.context.Context | None = None):
-    placeholders = placeholders_util.addDefaultPlaceholder(placeholders,
-                                                           interaction=interaction, ctx=ctx)
+    placeholders = placeholders_util.addDefaultPlaceholder(placeholders, interaction=interaction, ctx=ctx)
     multiMessage = dict()
     allMessages = utils.configManager.getCommandData(commandName).get("message_names", [])
     if not isinstance(allMessages, list):
         raise Exception("`message_names` is not a list! Expected a list.")
     for msg in allMessages:
-        multiMessage = await __handleOneMessage(bot, commandName, ctx, executionPath, interaction, msg,
-                                                multiMessage, placeholders, None)
+        execPath = executionPath + ":" + msg
+        multiMessage = await __handleOneMessage(bot, commandName, ctx, execPath, interaction, msg, multiMessage,
+                                                placeholders, None)
+        print(multiMessage)
 
     return multiMessage
 
@@ -186,11 +182,10 @@ async def isCommandRestricted(bot: commands.Bot, commandName: str, executionPath
 
 
 async def buildChannelData(bot: commands.Bot, commandName: str, message: str, placeholders: dict, executionPath: str,
-                           error,
-                           interaction: discord.Interaction | None = None,
+                           error, interaction: discord.Interaction | None = None,
                            ctx: discord.ext.commands.context.Context | None = None) -> tuple:
     if bot is None and interaction is None and ctx is None:
-        return (None, None, None, None)
+        raise Exception("Code error!")
     channelMessages: list = utils.configManager.getMessagesByChannel(message).copy()
     channelEmbeds: list = utils.configManager.getEmbedsByChannel(message).copy()
     channelButtons: list = utils.configManager.getButtonsByChannel(message).copy()
@@ -223,15 +218,14 @@ async def buildChannelData(bot: commands.Bot, commandName: str, message: str, pl
         elif ctx is not None:
             channel = ctx.channel
     if isinstance(channel, discord.TextChannel):
-        return (builtChannelEmbeds, builtChannelMessages, channel, builtChannelButtons)
+        return builtChannelEmbeds, builtChannelMessages, channel, builtChannelButtons
 
     if error is None:
         await handleError(bot, commandName, executionPath, "Text channel expected", placeholders=placeholders,
                           interaction=interaction, ctx=ctx)
+        return None, None, None, None
     else:
         raise Exception("Text channel expected")
-
-    return (None, None, None, None)
 
 
 def buildMessageData(commandName: str, msg: str, placeholders: dict) -> list:
@@ -349,10 +343,11 @@ async def handleMessage(bot: commands.Bot, commandName: str, executionPath: str,
                                              interaction=interaction, ctx=ctx)
         await sendResponse(mainData, DMUser=DMUser, interaction=interaction, ctx=ctx)
     except Exception as e:
+        print(e)
         statusData["message"] = False
         statusData.update(await handleError(bot, commandName, executionPath, e, placeholders=placeholders,
                                             interaction=interaction, ctx=ctx))
-    finally:
+    else:
         statusData["message"] = True
     return statusData
 
@@ -367,15 +362,17 @@ async def handleError(bot: commands.Bot, commandName: str, executionPath: str, e
         placeholders[utils.configManager.getErrorPathPlaceholder()] = executionPath
         try:
             await sendResponse(
-                await MainBuildError(bot, commandName, executionPath, error, placeholders,
-                                     interaction=interaction, ctx=ctx),
+                await MainBuildError(bot, commandName, executionPath, error, placeholders, interaction=interaction,
+                                     ctx=ctx),
                 DMUser=None)
         except Exception as ex:
+            print("Error error", ex)
             if utils.configManager.isPrintError():
                 print("original error:", error, "follow up error:", ex)
             errorData["error"] = False
             errorData["actions"] = False
-        finally:
+        else:
+            print("Handled Error")
             errorData["error"] = True
             errorData["actions"] = await actions.handleErrorActions(bot, executionPath, interaction)
     return errorData
@@ -412,5 +409,3 @@ async def handleInvalidChannels(bot: commands.Bot, command: str, executionPath: 
     return await handleError(bot, command, executionPath, error,
                              placeholders={utils.configManager.getInvalidChannelPlaceholder(): error},
                              interaction=interaction, ctx=ctx)
-
-

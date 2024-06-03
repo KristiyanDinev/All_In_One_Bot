@@ -16,14 +16,6 @@ def addDefaultPlaceholder(placeholders: dict, interaction: discord.Interaction =
     if actionPath not in placeholders.keys():
         placeholders[actionPath] = ""
     if interaction is not None:
-        if utils.configManager.getXPPlaceholder() not in placeholders.keys():
-            placeholders[utils.configManager.getXPPlaceholder()] = str(
-                utils.configManager.getUserXP(interaction.user.id))
-
-        if utils.configManager.getLevelPlaceholder() not in placeholders.keys():
-            placeholders[utils.configManager.getLevelPlaceholder()] = str(
-                utils.configManager.getUserLevel(interaction.user.id))
-
         if utils.configManager.getUsernamePlaceholder() not in placeholders.keys():
             placeholders[utils.configManager.getUsernamePlaceholder()] = interaction.user.name
 
@@ -31,13 +23,6 @@ def addDefaultPlaceholder(placeholders: dict, interaction: discord.Interaction =
             placeholders[utils.configManager.getIDPlaceholder()] = str(interaction.user.id)
 
     elif ctx is not None:
-        if utils.configManager.getXPPlaceholder() not in placeholders.keys():
-            placeholders[utils.configManager.getXPPlaceholder()] = str(utils.configManager.getUserXP(ctx.author.id))
-
-        if utils.configManager.getLevelPlaceholder() not in placeholders.keys():
-            placeholders[utils.configManager.getLevelPlaceholder()] = str(
-                utils.configManager.getUserLevel(ctx.author.id))
-
         if utils.configManager.getUsernamePlaceholder() not in placeholders.keys():
             placeholders[utils.configManager.getUsernamePlaceholder()] = ctx.author.name
 

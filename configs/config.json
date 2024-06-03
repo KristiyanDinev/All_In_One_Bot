@@ -20,19 +20,8 @@
         }
     },
     "errors": {
-        "level:mymessage": {
-            "actions": ["send_error_message"]
-        }
     },
     "actions": {
-        "send_error_message": {
-            "messages": ["action_error"]
-        },
-        "idk": {
-            "guild": {
-
-            }
-        }
     },
     "webhooks": {
         "update_hook": "https://discord.com/api/webhooks/1234425760694009856/6qzNKIqqIzSmCaLMAZVoiWmSPtTHgCI5j81rhIqrnKLQey2ECqSo591oY6V-YQbdd5ur"

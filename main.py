@@ -89,23 +89,23 @@ async def on_ready():
     for loc in FindAll("cogs", exclusions=["__init__.py", "cogs\\ext", "cogs\\ext\\utils", "moderator_cog.py"]):
         await bot.load_extension(name=loc)
     print('Bot:', bot.user.name)
-    res = await messages.handleMessage(bot, "on_ready", "on_ready:error",
+    res = await messages.handleMessage(bot, "on_ready", "on_ready",
                                        placeholders={utils.configManager.getUsernamePlaceholder(): bot.user.name,
                                                      utils.configManager.getNumberPlaceholder(): bot.user.id},
                                        interaction=None, ctx=None)
     print("message", "success" if res["message"] else "failed")
-    print("error", "success" if res["error"] else "failed")
-    print("error_actions", "success" if res["error_actions"] else "failed")
+    print("error", "success" if res["error"] else "no error / failed")
+    print("error_actions", "success" if res["error_actions"] else " no error / failed")
 
 
 @bot.command()
 async def sync(ctx):
-    if await messages.isCommandRestricted(bot, "sync", "sync:error",
+    if await messages.isCommandRestricted(bot, "sync", "sync",
                                           interaction=None, ctx=ctx):
         return
 
     synced = await bot.tree.sync()
-    res = await messages.handleMessage(bot, "sync", "sync:error",
+    res = await messages.handleMessage(bot, "sync", "sync",
                                        placeholders={utils.configManager.getNumberPlaceholder(): str(len(synced))},
                                        interaction=None, DMUser=None, ctx=ctx)
     print("message", "success" if res["message"] else "failed")
@@ -115,12 +115,12 @@ async def sync(ctx):
 
 @bot.command()
 async def reload(ctx: discord.ext.commands.context.Context):
-    if await messages.isCommandRestricted(bot, "reload", "reload:error", interaction=None,
+    if await messages.isCommandRestricted(bot, "reload", "reload", interaction=None,
                                           ctx=ctx):
         return
 
     utils.configManager.reloadConfig()
-    res = await messages.handleMessage(bot, "reload", "reload:error",
+    res = await messages.handleMessage(bot, "reload", "reload",
                                        placeholders={},
                                        interaction=None, DMUser=None, ctx=ctx)
     print("message", "success" if res["message"] else "failed")

@@ -1,7 +1,3 @@
 {
-  "message_names": ["reload_done"],
-
-  "messages": {
-    "reload_done": ["Reloaded"]
-  }
+  "message_names": ["mymessage"]
 }

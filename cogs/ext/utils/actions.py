@@ -42,7 +42,7 @@ async def handleCogCommandExecution(cog: commands.Cog, interaction: discord.Inte
                 commandData["execution_error"] = await messages.handleError(interaction.client, commandName,
                                                                             executionPath, e,
                                                                             placeholders={}, interaction=interaction)
-            finally:
+            else:
                 commandData["executed"] = True
             return commandData
     return commandData
@@ -68,7 +68,7 @@ async def handleActionCommands(interaction: discord.Interaction, commandsData: d
                         except commands.ExtensionAlreadyLoaded:
                             commandsExecutionData[comm] = await handleCogCommandExecution(cog, interaction, comm.name,
                                                                                           comm, args, executedPath)
-                        finally:
+                        else:
                             executed = True
                             commandsExecutionData["success"] = "Command has been executed"
                         break
@@ -245,7 +245,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await messages.handleError(bot, commandName, executedPath, {"error": e,
                                  "message": f"Couldn't ban user {user.name} : {user.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         usersBanned.append(user)
 
                 for userToBan in utils.getUsers(userDoData, interaction.guild):
@@ -255,7 +255,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await messages.handleError(bot, commandName, executedPath, {"error": e,
                                  "message": f"Couldn't ban user {userToBan.name} : {userToBan.id} for reason {reason}"},
                                                   placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         usersBanned.append(userToBan)
 
                 duration: int = int(userDoData.get("duration", -1))
@@ -279,7 +279,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"error": e, "message":
                                              f"Couldn't unban user {user.name} : {user.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         usersUnbanned.append(user)
 
                 for resUser in utils.getUsers(userDoData, interaction.guild):
@@ -291,7 +291,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                     "message":
                                     f"Couldn't unban user {resUser.name} : {resUser.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         usersUnbanned.append(user)
 
                 if duration > 0 and len(usersUnbanned) > 0:
@@ -341,7 +341,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                        {"error": e,  "message":
                   f"Couldn't add role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"},
                                                        placeholders={}, interaction=interaction)
-                        finally:
+                        else:
                             roleAdded[role].append(user)
 
                     for resUser in users:
@@ -354,7 +354,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
            f"Couldn't add role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"},
                                                        placeholders={}, interaction=interaction)
 
-                        finally:
+                        else:
                             roleAdded[role].append(resUser)
                 hasData = False
                 for itemK, itemV in roleAdded.items():
@@ -384,7 +384,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                        {"error": e,"message":
            f"Couldn't remove role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"},
                                                        placeholders={}, interaction=interaction)
-                        finally:
+                        else:
                             roleRemoved[role].append(user)
                     for resUser in users:
                         try:
@@ -394,7 +394,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                        {"error": e, "message":
             f"Couldn't remove role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"},
                                                        placeholders={}, interaction=interaction)
-                        finally:
+                        else:
                             roleRemoved[role].append(resUser)
                 hasData = False
                 for itemK, itemV in roleRemoved.items():
@@ -435,7 +435,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                          f"Couldn't timeout user {user.name} : {user.id} to date {strptime}"},
                                                    placeholders={}, interaction=interaction)
 
-                    finally:
+                    else:
                         timeoutedMembers.append(user)
                 for resUser in utils.getUsers(userDoData, interaction.guild):
                     try:
@@ -445,7 +445,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"error": e, "message":
                                   f"Couldn't timeout user {resUser.name} : {resUser.id} to date {strptime}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         timeoutedMembers.append(resUser)
                 if duration > 0 and len(timeoutedMembers) > 0:
                     defaultArguments["duration"] = duration
@@ -468,7 +468,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"message":
                                  f"Couldn't deafen user {user.name} : {user.id} for reason {reason}", "error": e},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         deafenMembers.append(user)
                 for resUser in utils.getUsers(userDoData, interaction.guild):
                     try:
@@ -478,7 +478,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"message":
                                 f"Couldn't deafen user {resUser.name} : {resUser.id} for reason {reason}", "error": e},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         deafenMembers.append(resUser)
 
                 if duration > 0 and len(deafenMembers) > 0:
@@ -502,7 +502,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"message":
                                  f"Couldn't undeafen user {user.name} : {user.id} for reason {reason}", "error": e},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         removeDeafenMembers.append(user)
                 for resUser in users:
                     try:
@@ -512,7 +512,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"error": e,"message":
                                          f"Couldn't undeafen user {resUser.name} : {resUser.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         removeDeafenMembers.append(resUser)
 
                 if duration > 0 and len(removeDeafenMembers) > 0:
@@ -536,7 +536,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"message":
                         f"Couldn't muted user {user.name} : {user.id} for reason {reason}", "error": e},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         removeMutedMembers.append(user)
                 for resUser in users:
                     try:
@@ -546,7 +546,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"message":
                                  f"Couldn't muted user {resUser.name} | {resUser.id} for reason {reason}", "error": e},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         removeMutedMembers.append(resUser)
 
                 if duration > 0 and len(removeMutedMembers) > 0:
@@ -570,7 +570,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"error": e,
                                     "message": f"Couldn't unmute user {user.name} | {user.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         removeMutedMembers.append(user)
 
                 for resUser in users:
@@ -581,7 +581,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"error": e,
                                "message": f"Couldn't unmute user {resUser.name} | {resUser.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         removeMutedMembers.append(resUser)
 
                 if duration > 0 and len(removeMutedMembers) > 0:
@@ -645,7 +645,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                      f"Couldn't delete role {selectedRole.name} : {selectedRole.id} " +
                                        f"for reason {rolesData.get('reason')} in guild {guild_name} : {guild_id}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         roles.append(selectedRole)
                 duration: int = int(rolesData.get("duration", -1))
                 if duration > 0 and len(roles) > 0:
@@ -669,7 +669,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                             f"Couldn't edit role {role.name} : {role.id} for reason {rolesData.get('reason')} " +
                                                         f"in guild {guild_name} : {guild_id}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         edited[role] = prevStatus
                 duration: int = int(rolesData.get("duration", -1))
                 if duration > 0 and len(edited) > 0:
@@ -739,7 +739,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                                f" for reason {reason} " +
                                                                f"in guild {guild_name} : {guild_id}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         deletedCategories.append(category)
 
                 duration: int = int(categoryData.get("duration", -1))
@@ -766,7 +766,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                                f" for reason {categoryData.get('reason')} " +
                                                                f"in guild {guild_name} : {guild_id}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         editedCategories[category] = categoryPrevData
 
                 duration: int = int(categoryData.get("duration", -1))
@@ -812,7 +812,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                                f" for reason {reason} " +
                                                                f"in guild {guild_name} : {guild_id}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         deletedChannels.append(channel)
                 duration: int = int(channelData.get("duration", -1))
                 if duration > 0 and len(deletedChannels) > 0:
@@ -838,7 +838,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                                f" for reason {channelData.get('reason')} " +
                                                                f"in guild {guild_name} : {guild_id}"},
                                                    placeholders={}, interaction=interaction)
-                    finally:
+                    else:
                         editedChannels[channel] = channelPrevData
 
                 duration: int = int(channelData.get("duration", -1))
