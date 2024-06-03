@@ -88,7 +88,7 @@ def startBackgroundTask(**taskArgs):
             interaction = tasks["interaction"]
             if not interaction.is_expired():
                 await messages.handleError(tasks["bot"], tasks["commandName"], tasks["executedPath"], e,
-                                           logs=tasks["logs"], placeholders={}, interaction=interaction)
+                                           placeholders={}, interaction=interaction)
 
     threading.Thread(target=utils.separateThread, args=(asyncio.get_running_loop(), wait, taskArgs),
                      daemon=True).start()
@@ -213,33 +213,28 @@ async def actionChannelEdit(channels: Dict[discord.CategoryChannel, Dict], reaso
 
 
 async def handleUser(interaction: discord.Interaction, userData: dict, bot: commands.Bot, commandName: str,
-                     executedPath: str) -> dict:
-    userStatus: dict = dict()
+                     executedPath: str):
     for userDo in userData.keys():
-        userStatus[userDo] = dict()
-        userStatus[userDo]["action_user_data"] = dict()
         userDoDataList: list = userData.get(userDo, [])
         if not isinstance(userDoDataList, list):
             userDoDataList = [userDoDataList] if isinstance(userDoDataList, dict) else []
         elif len(userDoDataList) == 0:
-            userStatus[userDo]["error"] = "Expected a map! Example: {'interact_both': False, 'user_id': ...}"
+            await messages.handleError(bot, commandName, executedPath,
+                                       "Expected a map! Example: {'interact_both': False, 'user_id': ...}",
+                                       placeholders={}, interaction=interaction)
             break
 
         checkReason = checkIFAnyValuableData(userDoDataList)
         if len(checkReason) > 0:
-            userStatus[userDo]["error"] = checkReason
+            await messages.handleError(bot, commandName, executedPath, checkReason,
+                                       placeholders={}, interaction=interaction)
             break
-
-        userStatus[userDo]["action_user_data"] = userDoDataList
         user = interaction.user
-        userStatus[userDo]["involved_user_name"] = user.name
-        userStatus[userDo]["involved_user_id"] = user.id
         defaultArguments = {"bot": bot, "interaction": interaction, "duration": -1, "commandName": commandName,
                             "executedPath": executedPath}
         if userDo == "ban":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
-                userStatus[userDo][i] = dict()
                 reason = str(userDoData.get("reason", ""))
 
                 usersBanned: list = []
@@ -247,37 +242,31 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     try:
                         await utils.banUser(user, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["user_ban_error"] = {"error": e,
-                                 "message": f"Couldn't ban user {user.name} : {user.id} for reason {reason}"}
+                        await messages.handleError(bot, commandName, executedPath, {"error": e,
+                                 "message": f"Couldn't ban user {user.name} : {user.id} for reason {reason}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo][i]["user_ban_success"] = \
-                            {"message": f"Banned {user.name} : {user.id} for reason {reason}"}
                         usersBanned.append(user)
 
-                userStatus[userDo][i]["ban_success"] = []
-                userStatus[userDo][i]["ban_error"] = []
                 for userToBan in utils.getUsers(userDoData, interaction.guild):
                     try:
                         await utils.banUser(userToBan, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["ban_error"].append({"error": e,
-                                 "message": f"Couldn't ban user {user.name} : {user.id} for reason {reason}"})
+                        await messages.handleError(bot, commandName, executedPath, {"error": e,
+                                 "message": f"Couldn't ban user {userToBan.name} : {userToBan.id} for reason {reason}"},
+                                                  placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo][i]["ban_success"].append(
-                            {"message": f"Banned {user.name} : {user.id} for reason {reason}"})
                         usersBanned.append(userToBan)
 
                 duration: int = int(userDoData.get("duration", -1))
                 if duration > 0 and len(usersBanned) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = userStatus
                     startBackgroundTask(function=actionUnbanUsers,
                                         functionArgs=[usersBanned, str(userDoData.get("unban_reason", ""))],
                                         **defaultArguments)
         elif userDo == "unban":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
-                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 reason = str(userDoData.get("reason", ""))
 
@@ -286,104 +275,86 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     try:
                         await utils.unbanUser(user, reason=reason)
                     except Exception as e:
-                        userStatus[userDo]["user_unban_error"] = {"error": e,
-                                                                "message":
-                                             f"Couldn't unban user {user.name} : {user.id} for reason {reason}"}
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e, "message":
+                                             f"Couldn't unban user {user.name} : {user.id} for reason {reason}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo]["user_unban_success"] = \
-                            {"message": f"Unbanned {user.name} : {user.id} for reason {reason}"}
                         usersUnbanned.append(user)
 
-                userStatus[userDo]["unban_error"] = []
-                userStatus[userDo]["unban_success"] = []
                 for resUser in utils.getUsers(userDoData, interaction.guild):
                     try:
                         await utils.unbanUser(resUser, reason=reason)
                     except Exception as e:
-                        userStatus[userDo]["unban_error"].append({"error": e,
-                                                                "message":
-                                       f"Couldn't unban user {resUser.name} : {resUser.id} for reason {reason}"})
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e,
+                                                    "message":
+                                    f"Couldn't unban user {resUser.name} : {resUser.id} for reason {reason}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo]["unban_success"].append({"message":
-                                                    f"Unbanned {resUser.name} : {resUser.id} for reason {reason}"})
                         usersUnbanned.append(user)
 
                 if duration > 0 and len(usersUnbanned) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = userStatus
                     startBackgroundTask(function=actionBanUsers,
                                         functionArgs=[usersUnbanned, str(userDoData.get("unban_reason", ""))],
                                         **defaultArguments)
         elif userDo == "kick":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
-                userStatus[userDo][i] = dict()
                 users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
                 if bool(userDoData.get("interact_both", True)):
                     try:
                         await utils.kickUser(user, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["user_kick_error"] = {"error": e,
-                                                                "message":
-                                    f"Couldn't kick user {user.name} : {user.id} for reason {reason}"}
-                    finally:
-                        userStatus[userDo][i]["user_kick_success"] = \
-                            {"message": f"Kicked {user.name} : {user.id} for reason {reason}"}
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e,
+                                                    "message":
+                                          f"Couldn't kick user {user.name} : {user.id} for reason {reason}"},
+                                                   placeholders={}, interaction=interaction)
 
-                userStatus[userDo][i]["kick_error"] = []
-                userStatus[userDo][i]["kick_success"] = []
                 for resUser in users:
                     try:
                         await utils.kickUser(resUser, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["kick_error"].append({"error": e,
-                                                                 "message":
-                         f"Couldn't kick user {resUser.name} : {resUser.id} for reason {reason}"})
-                    finally:
-                        userStatus[userDo][i]["kick_success"].append({"message":
-                                          f"Kicked {resUser.name} : {resUser.id} for reason {reason}"})
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e,
+                                                    "message":
+                                     f"Couldn't kick user {resUser.name} : {resUser.id} for reason {reason}"},
+                                                   placeholders={}, interaction=interaction)
         elif userDo == "role_add":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
-                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
 
                 roleAdded: dict = dict()
-                userStatus[userDo][i]["user_role_add_error"] = []
-                userStatus[userDo][i]["user_role_add_success"] = []
-
-                userStatus[userDo][i]["role_add_success"] = []
-                userStatus[userDo][i]["role_add_error"] = []
                 for role in utils.getRoles(userDoData, interaction.guild):
                     roleAdded[role] = []
                     if bool(userDoData.get("interact_both", True)):
                         try:
                             await utils.addRole(user, role, reason=reason)
                         except Exception as e:
-                            userStatus[userDo][i]["user_role_add_error"].append(
-                                {"error": e,
-                                 "message":
-              f"Couldn't add role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"})
+                            await messages.handleError(bot, commandName, executedPath,
+                                                       {"error": e,  "message":
+                  f"Couldn't add role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"},
+                                                       placeholders={}, interaction=interaction)
                         finally:
-                            userStatus[userDo][i]["user_role_add_success"].append(
-                                {"message":
-                          f"Added role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"})
                             roleAdded[role].append(user)
 
                     for resUser in users:
                         try:
                             await utils.addRole(resUser, role, reason=reason)
                         except Exception as e:
-                            userStatus[userDo][i]["role_add_error"].append({"error": e,
-                                 "message":
-                f"Couldn't add role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"})
+                            await messages.handleError(bot, commandName, executedPath,
+                                                       {"error": e,
+                                                        "message":
+           f"Couldn't add role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"},
+                                                       placeholders={}, interaction=interaction)
+
                         finally:
-                            userStatus[userDo][i]["role_add_success"].append(
-                                {"message":
-                  f"Added role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"})
                             roleAdded[role].append(resUser)
                 hasData = False
                 for itemK, itemV in roleAdded.items():
@@ -392,52 +363,39 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         break
                 if duration > 0 and hasData:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = userStatus
                     startBackgroundTask(function=actionRemoveUserRoles,
                                         functionArgs=[roleAdded, str(userDoData.get("role_remove_reason", ""))],
                                         **defaultArguments)
         elif userDo == "role_remove":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
-                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
 
                 roleRemoved: dict = dict()
-                userStatus[userDo][i]["user_role_remove_error"] = []
-                userStatus[userDo][i]["user_role_remove_success"] = []
-
-                userStatus[userDo][i]["role_remove_error"] = []
-                userStatus[userDo][i]["role_remove_success"] = []
                 for role in utils.getRoles(userDoData, interaction.guild):
                     roleRemoved[role] = []
                     if bool(userDoData.get("interact_both", True)):
                         try:
                             await utils.removeRole(user, role, reason=reason)
                         except Exception as e:
-                            userStatus[userDo][i]["user_role_remove_error"].append(
-                                {"error": e,
-                                 "message":
-            f"Couldn't remove role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"})
+                            await messages.handleError(bot, commandName, executedPath,
+                                                       {"error": e,"message":
+           f"Couldn't remove role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"},
+                                                       placeholders={}, interaction=interaction)
                         finally:
-                            userStatus[userDo][i]["user_role_remove_success"].append(
-                                {"message":
-                     f"Removed role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"})
                             roleRemoved[role].append(user)
                     for resUser in users:
                         try:
                             await utils.removeRole(resUser, role, reason=reason)
                         except Exception as e:
-                            userStatus[userDo][i]["role_remove_error"].append(
-                                {"error": e,
-                                 "message":
-           f"Couldn't remove role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"})
+                            await messages.handleError(bot, commandName, executedPath,
+                                                       {"error": e, "message":
+            f"Couldn't remove role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"},
+                                                       placeholders={}, interaction=interaction)
                         finally:
                             roleRemoved[role].append(resUser)
-                            userStatus[userDo][i]["role_remove_success"].append(
-                                {"message":
-              f"Removed role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"})
                 hasData = False
                 for itemK, itemV in roleRemoved.items():
                     if len(itemV) > 0:
@@ -445,56 +403,52 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         break
                 if duration > 0 and hasData:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = userStatus
                     startBackgroundTask(function=actionAddUserRoles,
                                         functionArgs=[roleRemoved, str(userDoData.get("role_add_reason", ""))],
                                         **defaultArguments)
         elif userDo == "timeout":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
-                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 reason = str(userDoData.get("reason", ""))
                 if "until" not in userDoData.keys():
-                    userStatus[userDo][i]["error"] = "Until data is invalid! Format expected: YYYY-MM-DDTHH:MM:SS"
+                    await messages.handleError(bot, commandName, executedPath,
+                                               "Until data is invalid! Format expected: YYYY-MM-DDTHH:MM:SS",
+                                               placeholders={}, interaction=interaction)
                     break
                 else:
                     try:
                         strptime = datetime.strptime(str(userDoData.get("until")), "YYYY-MM-DDTHH:MM:SS")
                     except Exception as e:
-                        userStatus[userDo][i]["error"] = {"error": e, "message":
-                            "Until data is invalid! Format expected: YYYY-MM-DDTHH:MM:SS"}
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e, "message":
+                            "Until data is invalid! Format expected: YYYY-MM-DDTHH:MM:SS"},
+                                                   placeholders={}, interaction=interaction)
                         break
                 timeoutedMembers: list = []
                 if bool(userDoData.get("interact_both", True)):
                     try:
                         await utils.timeoutUser(user, strptime, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["user_timeout_add_error"] = \
-                            {"error": e,
-                             "message":
-                                 f"Couldn't timeout user {user.name} : {user.id} to date {strptime}"}
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e, "message":
+                         f"Couldn't timeout user {user.name} : {user.id} to date {strptime}"},
+                                                   placeholders={}, interaction=interaction)
+
                     finally:
-                        userStatus[userDo][i]["user_timeout_add_success"] = \
-                            {"message":  f"Added timeout to user {user.name} : {user.id} to date {strptime}"}
                         timeoutedMembers.append(user)
-                userStatus[userDo][i]["timeout_add_error"] = []
-                userStatus[userDo][i]["timeout_add_success"] = []
                 for resUser in utils.getUsers(userDoData, interaction.guild):
                     try:
                         await utils.timeoutUser(resUser, strptime, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["timeout_add_error"].append(
-                            {"error": e,
-                             "message":
-                                 f"Couldn't timeout user {resUser.name} : {resUser.id} to date {strptime}"})
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e, "message":
+                                  f"Couldn't timeout user {resUser.name} : {resUser.id} to date {strptime}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo][i]["timeout_add_success"].append(
-                            {"message": f"Added timeout to user {resUser.name} : {resUser.id} to date {strptime}"})
                         timeoutedMembers.append(resUser)
                 if duration > 0 and len(timeoutedMembers) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = userStatus
                     startBackgroundTask(function=actionRemoveUserTimeout,
                                         functionArgs=[timeoutedMembers,
                                                       str(userDoData.get("timeout_remove_reason", ""))],
@@ -502,7 +456,6 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
         elif userDo == "deafen":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
-                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 reason = str(userDoData.get("reason", ""))
 
@@ -511,38 +464,31 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     try:
                         await utils.userDeafen(user, True, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["user_deafen_add_error"] = \
-                            {"message": f"Couldn't deafen user {user.name} : {user.id} for reason {reason}",
-                             "error": e}
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"message":
+                                 f"Couldn't deafen user {user.name} : {user.id} for reason {reason}", "error": e},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo][i]["user_deafen_add_success"] = \
-                            {"message": f"Made user {user.name} : {user.id} deafen for reason {reason}"}
                         deafenMembers.append(user)
-                userStatus[userDo][i]["deafen_add_error"] = []
-                userStatus[userDo][i]["deafen_add_success"] = []
                 for resUser in utils.getUsers(userDoData, interaction.guild):
-                    userStatus[userDo][i]["deafen_add_success"] = []
                     try:
-                        await utils.userDeafen(user, True, reason=reason)
+                        await utils.userDeafen(resUser, True, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["deafen_add_error"].append(
-                            {"message": f"Couldn't deafen user {user.name} : {user.id} for reason {reason}",
-                             "error": e})
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"message":
+                                f"Couldn't deafen user {resUser.name} : {resUser.id} for reason {reason}", "error": e},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo][i]["deafen_add_success"].append(
-                            {"message": f"Made user {user.name} : {user.id} deafen for reason {reason}"})
                         deafenMembers.append(resUser)
 
                 if duration > 0 and len(deafenMembers) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = userStatus
                     startBackgroundTask(function=actionRemoveUserDeafen,
                                         functionArgs=[deafenMembers, str(userDoData.get("deafen_remove_reason", ""))],
                                         **defaultArguments)
         elif userDo == "deafen_remove":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
-                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
@@ -552,38 +498,31 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     try:
                         await utils.userDeafen(user, False, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["user_deafen_remove_error"] = \
-                            {"message": f"Couldn't undeafen user {user.name} : {user.id} for reason {reason}",
-                             "error": e}
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"message":
+                                 f"Couldn't undeafen user {user.name} : {user.id} for reason {reason}", "error": e},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo][i]["user_deafen_remove_success"] = \
-                            {"message": f"Undeafen user {user.name} : {user.id} for reason {reason}"}
                         removeDeafenMembers.append(user)
-                userStatus[userDo][i]["deafen_remove_success"] = []
-                userStatus[userDo][i]["deafen_remove_error"] = []
                 for resUser in users:
                     try:
                         await utils.userDeafen(resUser, False, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["deafen_remove_error"].append({"error": e,
-                                 "message":
-                                     f"Couldn't undeafen user {resUser.name} : {resUser.id} for reason {reason}"})
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e,"message":
+                                         f"Couldn't undeafen user {resUser.name} : {resUser.id} for reason {reason}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo][i]["deafen_remove_success"].append({"error": e,
-                                  "message":
-                                      f"Uundeafened user {resUser.name} : {resUser.id} for reason {reason}"})
                         removeDeafenMembers.append(resUser)
 
                 if duration > 0 and len(removeDeafenMembers) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = userStatus
                     startBackgroundTask(function=actionUserDeafen,
                                         functionArgs=[removeDeafenMembers, str(userDoData.get("deafen_reason", ""))],
                                         **defaultArguments)
         elif userDo == "mute":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
-                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
@@ -593,28 +532,25 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     try:
                         await utils.userMute(user, True, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["user_mute_add_error"] = {"message":
-                                   f"Couldn't muted user {user.name} | {user.id} for reason {reason}", "error": e}
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"message":
+                        f"Couldn't muted user {user.name} : {user.id} for reason {reason}", "error": e},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo][i]["user_mute_add_success"] = {"message":
-                                              f"Muted user {user.name} | {user.id} for reason {reason}"}
                         removeMutedMembers.append(user)
-                userStatus[userDo][i]["mute_add_error"] = []
-                userStatus[userDo][i]["mute_add_success"] = []
                 for resUser in users:
                     try:
                         await utils.userMute(resUser, True, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["mute_add_error"].append({"message":
-                                   f"Couldn't muted user {user.name} | {user.id} for reason {reason}", "error": e})
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"message":
+                                 f"Couldn't muted user {resUser.name} | {resUser.id} for reason {reason}", "error": e},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo][i]["mute_add_success"].append({"message":
-                                             f"Muted user {resUser.name} | {resUser.id} for reason {reason}"})
                         removeMutedMembers.append(resUser)
 
                 if duration > 0 and len(removeMutedMembers) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = userStatus
                     startBackgroundTask(function=actionRemoveUserMute,
                                         functionArgs=[removeMutedMembers,
                                                       str(userDoData.get("mute_remove_reason", ""))],
@@ -622,7 +558,6 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
         elif userDo == "mute_remove":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
-                userStatus[userDo][i] = dict()
                 duration: int = int(userDoData.get("duration", -1))
                 users: list = utils.getUsers(userDoData, interaction.guild)
                 reason = str(userDoData.get("reason", ""))
@@ -631,43 +566,34 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     try:
                         await utils.userMute(user, False, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["user_mute_remove_error"] = {"error": e,
-                                  "message": f"Couldn't unmute user {user.name} | {user.id} for reason {reason}"}
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e,
+                                    "message": f"Couldn't unmute user {user.name} | {user.id} for reason {reason}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo][i]["user_mute_remove_success"] = {
-                                  "message": f"Unmuted user {user.name} | {user.id} for reason {reason}"}
                         removeMutedMembers.append(user)
 
-                userStatus[userDo][i]["mute_remove_success"] = []
-                userStatus[userDo][i]["mute_remove_error"] = []
                 for resUser in users:
                     try:
                         await utils.userMute(resUser, False, reason=reason)
                     except Exception as e:
-                        userStatus[userDo][i]["mute_remove_error"].append({"error": e,
-                        "message": f"Couldn't unmute user {resUser.name} | {resUser.id} for reason {reason}"})
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e,
+                               "message": f"Couldn't unmute user {resUser.name} | {resUser.id} for reason {reason}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        userStatus[userDo][i]["mute_remove_success"] = {
-                            "message": f"Unmuted user {resUser.name} | {resUser.id} for reason {reason}"}
                         removeMutedMembers.append(resUser)
 
                 if duration > 0 and len(removeMutedMembers) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = userStatus
                     startBackgroundTask(function=actionUserMute,
                                         functionArgs=[removeMutedMembers, str(userDoData.get("mute_reason", ""))],
                                         **defaultArguments)
-    return userStatus
 
 
 async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: commands.Bot, commandName: str,
-                      executedPath: str) -> dict:
-    guildStatus: dict = dict()
+                      executedPath: str):
     guild = interaction.guild
-    guildId = guild.id
-
-    guildStatus[guildId] = dict()
-    guildStatus[guildId]["status_guild_name"] = interaction.guild.name
     defaultArguments = {"bot": bot, "interaction": interaction, "duration": -1, "commandName": commandName,
                         "executedPath": executedPath}
     for guildToDo in guildData.keys():
@@ -675,62 +601,55 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
         if not isinstance(listData, list):
             listData = [listData] if isinstance(listData, dict) else []
         elif len(listData) == 0:
-            guildStatus[guildId]["error"] = \
-                "No data has been provided. Expected map! Example: {'role_id': ..., 'role_name':...}"
+            await messages.handleError(bot, commandName, executedPath,
+                        "No data has been provided. Expected map! Example: {'role_id': ..., 'role_name':...}",
+                                       placeholders={}, interaction=interaction)
             break
 
         checkReason = checkIFAnyValuableData(listData)
         if len(checkReason) > 0:
-            guildStatus[guildId]["error"] = checkReason
+            await messages.handleError(bot, commandName, executedPath, checkReason, placeholders={},
+                                       interaction=interaction)
             break
 
+        guild_id = guild.id
+        guild_name = guild.name
         if guildToDo == "role_create":
             for i in range(len(listData)):
                 rolesData: dict = listData[i]
-                guildStatus[rolesData][i] = dict()
                 try:
                     role = await utils.createRole(rolesData, guild)
                 except Exception as e:
-                    guildStatus[rolesData][i]["create_role_error"] = {"error": e,
-                              "message":
-                                f"Couldn't create role {rolesData.get('name')} for reason {rolesData.get('reason')} "
-                                f"in guild {guild.name} : {guild.id}"}
+                    await messages.handleError(bot, commandName, executedPath,
+                                               {"error": e,"message":
+                                 f"Couldn't create role {rolesData.get('name')} for reason {rolesData.get('reason')} "
+                                                    f"in guild {guild_name} : {guild_id}"},
+                                               placeholders={}, interaction=interaction)
                     continue
-                finally:
-                    guildStatus[rolesData][i]["create_role_success"] =\
-                        {"message": f"Created role {rolesData.get('name')} for reason {rolesData.get('reason')} "
-                                f"in guild {guild.name} : {guild.id}"}
                 duration: int = int(rolesData.get("duration", -1))
                 if duration > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = guildStatus
                     startBackgroundTask(function=utils.deleteRole,
                                         functionArgs=[role, str(rolesData.get("role_delete_reason", ""))],
                                         **defaultArguments)
         elif guildToDo == "role_delete":
             for i in range(len(listData)):
                 rolesData = listData[i]
-                guildStatus[rolesData][i] = dict()
                 roles: list = []
                 for selectedRole in utils.getRoles(rolesData, interaction.guild):
                     try:
                         await utils.deleteRole(selectedRole, reason=rolesData.get("reason", ""))
                     except Exception as e:
-                        guildStatus[rolesData][i]["delete_role_error"] = \
-                        {"error": e,
-                         "message":
-                             f"Couldn't delete role {selectedRole.name} : {selectedRole.id} " +
-                             f"for reason {rolesData.get('reason')} in guild {guild.name} : {guild.id}"}
-                        continue
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e, "message":
+                                     f"Couldn't delete role {selectedRole.name} : {selectedRole.id} " +
+                                       f"for reason {rolesData.get('reason')} in guild {guild_name} : {guild_id}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        guildStatus[rolesData][i]["delete_role_success"] = \
-                            {"message": f"Deleted role {selectedRole.name} : {selectedRole.id} " +
-                             f"for reason {rolesData.get('reason')} in guild {guild.name} : {guild.id}"}
                         roles.append(selectedRole)
                 duration: int = int(rolesData.get("duration", -1))
                 if duration > 0 and len(roles) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = guildStatus
                     startBackgroundTask(function=actionCreateRole,
                                         functionArgs=[roles, str(rolesData.get("role_create_reason", "")),
                                                       bool(rolesData.get("give_back_roles_to_users", False)),
@@ -739,51 +658,38 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
         elif guildToDo == "role_edit":
             for i in range(len(listData)):
                 rolesData = listData[i]
-                guildStatus[rolesData][i] = dict()
                 edited: Dict[discord.Role, Dict] = dict()
                 for role in utils.getRoles(rolesData, guild):
                     prevStatus: dict = utils.getRoleData(role)
-                    roleEditLogs = dict()
                     try:
-                        roleEditLogs: dict = await utils.editRole(rolesData, role)
+                        await utils.editRole(rolesData, role)
                     except Exception as e:
-                        guildStatus[rolesData][i]["role_edit_error"] = \
-                            {"error": e,
-                             "message":
-                                 f"Couldn't edit role {role.name} : {role.id} for reason {rolesData.get('reason')} "+
-                                 f"in guild {guild.name} : {guild.id}"}
-                        continue
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e, "message":
+                            f"Couldn't edit role {role.name} : {role.id} for reason {rolesData.get('reason')} " +
+                                                        f"in guild {guild_name} : {guild_id}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        guildStatus[rolesData][i]["role_edit_success"] = \
-                        {"message":
-                             f"Edited role {role.name} : {role.id} for reason {rolesData.get('reason')} "+
-                                 f"in guild {guild.name} : {guild.id}", "logs": roleEditLogs}
                         edited[role] = prevStatus
                 duration: int = int(rolesData.get("duration", -1))
                 if duration > 0 and len(edited) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = guildStatus
                     startBackgroundTask(function=actionRoleEdit,
                                         functionArgs=[edited, str(rolesData.get("role_edit_reason", ""))],
                                         **defaultArguments)
         elif guildToDo == "overview":
             for i in range(len(listData)):
                 overviewData = listData[i]
-                guildStatus[overviewData][i] = dict()
                 fullPrevData: dict = utils.getGuildData(guild)
                 reason = str(overviewData.get("reason", ""))
                 try:
                     await utils.editGuild(overviewData, guild, reason)
                 except Exception as e:
-                    guildStatus[overviewData][i]["overview_edit_error"] = \
-                        {"error": e,
-                         "message":
-                             f"Couldn't edit guild {guild.name} : {guild.id} for reason {reason}"}
+                    await messages.handleError(bot, commandName, executedPath,
+                                               {"error": e, "message":
+                                                f"Couldn't edit guild {guild_name} : {guild_id} for reason {reason}"},
+                                               placeholders={}, interaction=interaction)
                     continue
-                finally:
-                    guildStatus[overviewData][i]["overview_edit_success"] = \
-                        {"message":
-                             f"Edited guild {guild.name} : {guild.id} for reason {reason}"}
 
                 prevData: dict = dict()
                 for key in overviewData.keys():
@@ -793,38 +699,32 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                 duration: int = int(overviewData.get("duration", -1))
                 if duration > 0 and len(prevData) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = guildStatus
                     startBackgroundTask(function=utils.editGuild,
                                         functionArgs=[prevData, guild, str(overviewData.get("guild_edit_reason", ""))],
                                         **defaultArguments)
         elif guildToDo == "category_create":
             for i in range(len(listData)):
                 categoryData = listData[i]
-                guildStatus[categoryData][i] = dict()
                 try:
                     category: discord.CategoryChannel = await utils.createCategory(categoryData, guild)
                 except Exception as e:
-                    guildStatus[categoryData][i]["category_create_error"] = \
-                        {"error": e, "message": f"Couldn't create category {categoryData.get('name')}"
-                                                f" for reason {categoryData.get('reason')} " +
-                             f"in guild {guild.name} : {guild.id}"}
+                    await messages.handleError(bot, commandName, executedPath,
+                                               {"error": e, "message":
+                                                   f"Couldn't create category {categoryData.get('name')}"
+                                                           f" for reason {categoryData.get('reason')} " +
+                                                           f"in guild {guild_name} : {guild_id}"},
+                                               placeholders={}, interaction=interaction)
+
                     continue
-                finally:
-                    guildStatus[categoryData][i]["category_create_success"] = \
-                        {"message":
-                             f"Created category {categoryData.get('name')} for reason {categoryData.get('reason')} " +
-                             f"in guild {guild.name} : {guild.id}"}
                 duration: int = int(categoryData.get("duration", -1))
                 if duration > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = guildStatus
                     startBackgroundTask(function=utils.deleteCategory,
                                         functionArgs=[category, str(categoryData.get("category_delete_reason", ""))],
                                         **defaultArguments)
         elif guildToDo == "category_delete":
             for i in range(len(listData)):
                 categoryData = listData[i]
-                guildStatus[categoryData][i] = dict()
                 deletedCategories: List[discord.CategoryChannel] = []
                 reason = str(categoryData.get("reason", ""))
                 for category in utils.getCategories(categoryData, guild):
@@ -833,22 +733,18 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                     try:
                         await utils.deleteCategory(category, reason=reason)
                     except Exception as e:
-                        guildStatus[categoryData][i]["category_delete_error"] = \
-                            {"error": e, "message": f"Couldn't delete category {categoryData.get('name')}"
-                                                    f" for reason {reason} " +
-                                                    f"in guild {guild.name} : {guild.id}"}
-                        continue
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e,
+                                                    "message": f"Couldn't delete category {categoryData.get('name')}"
+                                                               f" for reason {reason} " +
+                                                               f"in guild {guild_name} : {guild_id}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        guildStatus[categoryData][i]["category_delete_success"] = \
-                            {"message": f"Deleted category {categoryData.get('name')} for "
-                                        f"reason {reason} " +
-                                        f"in guild {guild.name} : {guild.id}"}
                         deletedCategories.append(category)
 
                 duration: int = int(categoryData.get("duration", -1))
                 if duration > 0 and len(deletedCategories) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = guildStatus
                     startBackgroundTask(function=actionCategoryCreate,
                                         functionArgs=[deletedCategories,
                                                       str(categoryData.get("category_delete_reason", "")), guild],
@@ -856,7 +752,6 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
         elif guildToDo == "category_edit":
             for i in range(len(listData)):
                 categoryData = listData[i]
-                guildStatus[categoryData][i] = dict()
                 editedCategories: Dict[discord.CategoryChannel, Dict] = dict()
                 for category in utils.getCategories(categoryData, guild):
                     if category is None:
@@ -865,22 +760,18 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                     try:
                         await utils.editCategory(category, categoryData)
                     except Exception as e:
-                        guildStatus[categoryData][i]["category_edit_error"] = \
-                        {"error": e, "message": f"Couldn't edit category {categoryData.get('name')}"
-                                                    f" for reason {categoryData.get('reason')} " +
-                                                    f"in guild {guild.name} : {guild.id}"}
-                        continue
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e, "message":
+                                                       f"Couldn't edit category {categoryData.get('name')}"
+                                                               f" for reason {categoryData.get('reason')} " +
+                                                               f"in guild {guild_name} : {guild_id}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        guildStatus[categoryData][i]["category_edit_success"] = \
-                            {"message": f"Edited category {categoryData.get('name')}"
-                                                    f" for reason {categoryData.get('reason')} " +
-                                                    f"in guild {guild.name} : {guild.id}"}
                         editedCategories[category] = categoryPrevData
 
                 duration: int = int(categoryData.get("duration", -1))
                 if duration > 0 and len(editedCategories) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = guildStatus
                     startBackgroundTask(function=actionCategoryEdit,
                                         functionArgs=[editedCategories,
                                                       str(categoryData.get("category_edit_reason", ""))],
@@ -888,25 +779,20 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
         elif guildToDo == "channel_create":
             for i in range(len(listData)):
                 channelData = listData[i]
-                guildStatus[channelData][i] = dict()
                 try:
                     channels: List[discord.abc.GuildChannel] = await utils.createChannel(channelData, guild)
                 except Exception as e:
-                    guildStatus[channelData][i]["channel_edit_error"] = \
-                        {"error": e, "message": f"Couldn't create channel {channelData.get('name')}"
-                                                f" for reason {channelData.get('reason')} " +
-                                                f"in guild {guild.name} : {guild.id}"}
+                    await messages.handleError(bot, commandName, executedPath,
+                                               {"error": e, "message":
+                                                   f"Couldn't create channel {channelData.get('name')}"
+                                                           f" for reason {channelData.get('reason')} " +
+                                                           f"in guild {guild_name} : {guild_id}"},
+                                               placeholders={}, interaction=interaction)
                     continue
-                finally:
-                    guildStatus[channelData][i]["channel_edit_success"] = \
-                        {"message": f"Created channel {channelData.get('name')}"
-                                                f" for reason {channelData.get('reason')} " +
-                                                f"in guild {guild.name} : {guild.id}"}
 
                 duration: int = int(channelData.get("duration", -1))
                 if duration > 0 and len(channels) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = guildStatus
                     startBackgroundTask(function=actionChannelDelete,
                                         functionArgs=[channels,
                                                       str(channelData.get("channel_delete_reason", ""))],
@@ -914,28 +800,23 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
         elif guildToDo == "channel_delete":
             for i in range(len(listData)):
                 channelData = listData[i]
-                guildStatus[channelData][i] = dict()
                 reason = str(channelData.get("reason", ""))
                 deletedChannels: List[discord.abc.GuildChannel] = []
                 for channel in utils.getChannels(channelData, guild):
                     try:
                         await utils.deleteChannel(channel, reason=reason)
                     except Exception as e:
-                        guildStatus[channelData][i]["channel_delete_error"] = \
-                            {"error": e, "message": f"Couldn't delete channel {channelData.get('name')}"
-                                        f" for reason {reason} " +
-                                        f"in guild {guild.name} : {guild.id}"}
-                        continue
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e, "message":
+                                                       f"Couldn't delete channel {channelData.get('name')}"
+                                                               f" for reason {reason} " +
+                                                               f"in guild {guild_name} : {guild_id}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        guildStatus[channelData][i]["channel_delete_success"] = \
-                            {"message": f"Deleted channel {channelData.get('name')}"
-                                        f" for reason {reason} " +
-                                        f"in guild {guild.name} : {guild.id}"}
                         deletedChannels.append(channel)
                 duration: int = int(channelData.get("duration", -1))
                 if duration > 0 and len(deletedChannels) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = guildStatus
                     startBackgroundTask(function=actionChannelCreate,
                                         functionArgs=[deletedChannels,
                                                       str(channelData.get("channel_create_reason", ""))],
@@ -943,7 +824,6 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
         elif guildToDo == "channel_edit":
             for i in range(len(listData)):
                 channelData = listData[i]
-                guildStatus[channelData][i] = dict()
                 editedChannels: Dict[discord.abc.GuildChannel, Dict] = dict()
                 for channel in utils.getChannels(channelData, guild):
                     if channel is None:
@@ -952,27 +832,22 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                     try:
                         await utils.editChannel(channelData, channel)
                     except Exception as e:
-                        guildStatus[channelData][i]["channel_edit_error"] = \
-                            {"error": e, "message": f"Couldn't edit channel {channelData.get('name')}"
-                                                    f" for reason {channelData.get('reason')} " +
-                                                    f"in guild {guild.name} : {guild.id}"}
-                        continue
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e, "message":
+                                                       f"Couldn't edit channel {channelData.get('name')}"
+                                                               f" for reason {channelData.get('reason')} " +
+                                                               f"in guild {guild_name} : {guild_id}"},
+                                                   placeholders={}, interaction=interaction)
                     finally:
-                        guildStatus[channelData][i]["channel_edit_success"] = \
-                            {"message": f"Edited channel {channelData.get('name')}"
-                                        f" for reason {channelData.get('reason')} " +
-                                        f"in guild {guild.name} : {guild.id}"}
                         editedChannels[channel] = channelPrevData
 
                 duration: int = int(channelData.get("duration", -1))
                 if duration > 0 and len(editedChannels) > 0:
                     defaultArguments["duration"] = duration
-                    defaultArguments["logs"] = guildStatus
                     startBackgroundTask(function=actionChannelEdit,
                                         functionArgs=[editedChannels,
                                                       str(channelData.get("channel_edit_reason", ""))],
                                         **defaultArguments)
-    return guildStatus
 
 
 async def handleAllActions(bot: commands.Bot, actionData: dict, interaction: discord.Interaction) -> dict:
@@ -1015,3 +890,12 @@ async def handleErrorActions(bot: commands.Bot, errorPath: str, interaction: dis
     for action in utils.configManager.getErrorActions(errorPath):
         actionData[action] = utils.configManager.getActionData(action).copy()
     return await handleAllActions(bot, actionData, interaction)
+
+
+
+
+
+
+
+
+

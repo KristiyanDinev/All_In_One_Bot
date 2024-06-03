@@ -357,7 +357,7 @@ async def handleMessage(bot: commands.Bot, commandName: str, executionPath: str,
     return statusData
 
 
-async def handleError(bot: commands.Bot, commandName: str, executionPath: str, error, logs: dict = dict(),
+async def handleError(bot: commands.Bot, commandName: str, executionPath: str, error,
                       placeholders: dict = dict(),
                       interaction: discord.Interaction | None = None,
                       ctx: discord.ext.commands.context.Context | None = None) -> dict:
@@ -372,9 +372,7 @@ async def handleError(bot: commands.Bot, commandName: str, executionPath: str, e
                 DMUser=None)
         except Exception as ex:
             if utils.configManager.isPrintError():
-                print("original error:", error, "follow up error:", ex, "logs: ", json.dumps(logs, sort_keys=True,
-                                                                                             indent=4,
-                                                                                             separators=(',', ': ')))
+                print("original error:", error, "follow up error:", ex)
             errorData["error"] = False
             errorData["actions"] = False
         finally:
@@ -414,3 +412,5 @@ async def handleInvalidChannels(bot: commands.Bot, command: str, executionPath: 
     return await handleError(bot, command, executionPath, error,
                              placeholders={utils.configManager.getInvalidChannelPlaceholder(): error},
                              interaction=interaction, ctx=ctx)
+
+

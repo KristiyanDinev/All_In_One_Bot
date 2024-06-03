@@ -115,8 +115,8 @@ async def sync(ctx):
 
 @bot.command()
 async def reload(ctx: discord.ext.commands.context.Context):
-    if await messages.isCommandRestricted(bot, "reload", "reload:error",
-                                          interaction=None, ctx=ctx):
+    if await messages.isCommandRestricted(bot, "reload", "reload:error", interaction=None,
+                                          ctx=ctx):
         return
 
     utils.configManager.reloadConfig()
