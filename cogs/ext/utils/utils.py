@@ -91,20 +91,25 @@ def allRolesContains(roles_id: list, roles_id2: list) -> bool:
 
 async def isUserRestricted(bot: commands.Bot, commandName: str, executionPath: str,
                            interaction: discord.Interaction | None = None,
-                           ctx: discord.ext.commands.context.Context | None = None) -> str:
+                           ctx: discord.ext.commands.context.Context | None = None) -> tuple:
     res = configManager.getCommandRestrictions(commandName)
-    reason = ""
+    reason: str = ""
+    messagesList: list = []
 
     for option, data in res.items():
         if not isinstance(data, dict):
-            res = await messages.handleError(bot, commandName, executionPath,
-                                             "Expected map in command restrictions, but got type " + str(type(data)),
-                                             placeholders=dict(),
-                                             interaction=interaction, ctx=ctx)
-            if res:
+            if option == "messages":
+                if not isinstance(data, list):
+                    reason += f"Expected list for messages in command restrictions, but got type {type(data)}"
+                else:
+                    messagesList = data
                 continue
             else:
-                reason += "Expected map in command restrictions, but got type " + str(type(data))
+                await messages.handleError(bot, commandName, executionPath,
+                                           f"Expected map in command restrictions, but got type {type(data)}",
+                                           placeholders=dict(),
+                                           interaction=interaction, ctx=ctx)
+                reason += f"Expected map for {option} in command restrictions, but got type {type(data)}"
                 break
         dataReason = data.get("reason", "")
         userRoleId: list = getRoleIdFromRoles(interaction.user.roles)
@@ -125,7 +130,7 @@ async def isUserRestricted(bot: commands.Bot, commandName: str, executionPath: s
               (interaction.channel.id if interaction is not None else ctx.channel.id) not in status):
             reason += dataReason
 
-    return reason
+    return reason, messagesList
 
 
 def separateThread(loop, func, *args):
@@ -569,8 +574,7 @@ async def deleteCategory(category: discord.CategoryChannel, reason: str = "") ->
     await category.delete(reason=reason)
 
 
-def getPermissionsMapping(permissions: dict, guild: discord.Guild) -> Mapping[
-    Union[Role, discord.Member], discord.PermissionOverwrite]:
+def getPermissionsMapping(permissions: dict, guild: discord.Guild) -> Mapping[Union[Role, discord.Member], discord.PermissionOverwrite]:
     overwrites = {}
     users: list = permissions.get("users")
     roles: list = permissions.get("roles")
@@ -951,4 +955,3 @@ async def editChannel(channelData: dict,
             available_tags = channelData.get("available_tags")
             if isinstance(available_tags, list):
                 await channel.edit(available_tags=available_tags)
-

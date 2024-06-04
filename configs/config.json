@@ -51,7 +51,8 @@
     "print_error_if_original_error_fails": true,
     "command_restriction": {
         "avatar": {
-            "all": {"reason": "Everyone can use it", "status": true}
+            "all": {"reason": "Everyone can use it", "status": false},
+            "messages": ["restricted"]
         }
     },
     "discord_bot_token": ""

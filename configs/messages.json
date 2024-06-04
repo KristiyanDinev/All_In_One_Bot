@@ -14,10 +14,6 @@
       "title": "You have error in your action",
       "fields": {"error":  "/error/", "path":  "/error_path/"}
     },
-    "sync:mymessage": {
-      "title": "You have error in Sync command",
-      "fields": {"error":  "/error/", "path":  "/error_path/"}
-    },
     "reload:mymessage": {
       "title": "You have error in Reload command",
       "fields": {"error":  "/error/", "path":  "/error_path/"}
@@ -30,9 +26,6 @@
     "listcog_msg": ["Cog name: /username/ Stats: /message/"],
     "enable_cog": ["Enabled cog: /username/"],
     "disable_cog": ["Disabled cog: /username/"],
-    "level_msg": ["Your level /level/ your xp /xp/"],
-    "edit_level_msg": ["Your new level is /level/"],
-    "edit_xp_msg": ["Your new xp is /xp/"],
     "simple_dm": ["dm from /username/ say /message/"],
     "sync_msg": ["Synced commands /number/"],
     "bot_loads": ["/username/ is online | ID: /number/"],
