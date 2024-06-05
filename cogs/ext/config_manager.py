@@ -387,4 +387,4 @@ class ConfigManager:
         return '/error/'
 
     def getErrorPathPlaceholder(self):
-        return '/error/'
+        return '/error_path/'

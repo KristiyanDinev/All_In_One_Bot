@@ -10,8 +10,7 @@
         "Utils": "utils_cog"
     },
     "channels": {
-        "ready": 990966688142995487,
-        "mymessage": 1
+        "ready": 990966688142995487
     },
     "role_management": {
         "test_role": {
@@ -50,8 +49,8 @@
     ],
     "print_error_if_original_error_fails": true,
     "command_restriction": {
-        "avatar": {
-            "all": {"reason": "Everyone can use it", "status": false},
+        "reload": {
+            "all": {"reason": "Everyone can not use it", "status": true},
             "messages": ["restricted"]
         }
     },

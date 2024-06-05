@@ -232,6 +232,12 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
         user = interaction.user
         defaultArguments = {"bot": bot, "interaction": interaction, "duration": -1, "commandName": commandName,
                             "executedPath": executedPath}
+        if userDo not in ["ban", "unban", "kick", "role_add", "role_remove",
+                          "timeout", "deafen", "deafen_remove", "mute", "mute_remove"]:
+            continue
+
+        executedPath = await handleExecutionPathFormat(executedPath, userDo)
+
         if userDo == "ban":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
@@ -243,7 +249,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await utils.banUser(user, reason=reason)
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath, {"error": e,
-                                 "message": f"Couldn't ban user {user.name} : {user.id} for reason {reason}"},
+                                                                                    "message": f"Couldn't ban user {user.name} : {user.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
                     else:
                         usersBanned.append(user)
@@ -253,8 +259,8 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await utils.banUser(userToBan, reason=reason)
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath, {"error": e,
-                                 "message": f"Couldn't ban user {userToBan.name} : {userToBan.id} for reason {reason}"},
-                                                  placeholders={}, interaction=interaction)
+                                                                                    "message": f"Couldn't ban user {userToBan.name} : {userToBan.id} for reason {reason}"},
+                                                   placeholders={}, interaction=interaction)
                     else:
                         usersBanned.append(userToBan)
 
@@ -277,7 +283,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
-                                             f"Couldn't unban user {user.name} : {user.id} for reason {reason}"},
+                                                       f"Couldn't unban user {user.name} : {user.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
                     else:
                         usersUnbanned.append(user)
@@ -289,7 +295,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e,
                                                     "message":
-                                    f"Couldn't unban user {resUser.name} : {resUser.id} for reason {reason}"},
+                                                        f"Couldn't unban user {resUser.name} : {resUser.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
                     else:
                         usersUnbanned.append(user)
@@ -311,7 +317,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e,
                                                     "message":
-                                          f"Couldn't kick user {user.name} : {user.id} for reason {reason}"},
+                                                        f"Couldn't kick user {user.name} : {user.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
 
                 for resUser in users:
@@ -321,7 +327,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e,
                                                     "message":
-                                     f"Couldn't kick user {resUser.name} : {resUser.id} for reason {reason}"},
+                                                        f"Couldn't kick user {resUser.name} : {resUser.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
         elif userDo == "role_add":
             for i in range(len(userDoDataList)):
@@ -338,8 +344,8 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                             await utils.addRole(user, role, reason=reason)
                         except Exception as e:
                             await messages.handleError(bot, commandName, executedPath,
-                                                       {"error": e,  "message":
-                  f"Couldn't add role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"},
+                                                       {"error": e, "message":
+                                                           f"Couldn't add role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"},
                                                        placeholders={}, interaction=interaction)
                         else:
                             roleAdded[role].append(user)
@@ -351,7 +357,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                             await messages.handleError(bot, commandName, executedPath,
                                                        {"error": e,
                                                         "message":
-           f"Couldn't add role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"},
+                                                            f"Couldn't add role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"},
                                                        placeholders={}, interaction=interaction)
 
                         else:
@@ -381,8 +387,8 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                             await utils.removeRole(user, role, reason=reason)
                         except Exception as e:
                             await messages.handleError(bot, commandName, executedPath,
-                                                       {"error": e,"message":
-           f"Couldn't remove role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"},
+                                                       {"error": e, "message":
+                                                           f"Couldn't remove role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"},
                                                        placeholders={}, interaction=interaction)
                         else:
                             roleRemoved[role].append(user)
@@ -392,7 +398,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         except Exception as e:
                             await messages.handleError(bot, commandName, executedPath,
                                                        {"error": e, "message":
-            f"Couldn't remove role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"},
+                                                           f"Couldn't remove role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"},
                                                        placeholders={}, interaction=interaction)
                         else:
                             roleRemoved[role].append(resUser)
@@ -422,7 +428,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
-                            "Until data is invalid! Format expected: YYYY-MM-DDTHH:MM:SS"},
+                                                       "Until data is invalid! Format expected: YYYY-MM-DDTHH:MM:SS"},
                                                    placeholders={}, interaction=interaction)
                         break
                 timeoutedMembers: list = []
@@ -432,7 +438,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
-                         f"Couldn't timeout user {user.name} : {user.id} to date {strptime}"},
+                                                       f"Couldn't timeout user {user.name} : {user.id} to date {strptime}"},
                                                    placeholders={}, interaction=interaction)
 
                     else:
@@ -443,7 +449,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
-                                  f"Couldn't timeout user {resUser.name} : {resUser.id} to date {strptime}"},
+                                                       f"Couldn't timeout user {resUser.name} : {resUser.id} to date {strptime}"},
                                                    placeholders={}, interaction=interaction)
                     else:
                         timeoutedMembers.append(resUser)
@@ -466,7 +472,8 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"message":
-                                 f"Couldn't deafen user {user.name} : {user.id} for reason {reason}", "error": e},
+                                                        f"Couldn't deafen user {user.name} : {user.id} for reason {reason}",
+                                                    "error": e},
                                                    placeholders={}, interaction=interaction)
                     else:
                         deafenMembers.append(user)
@@ -476,7 +483,8 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"message":
-                                f"Couldn't deafen user {resUser.name} : {resUser.id} for reason {reason}", "error": e},
+                                                        f"Couldn't deafen user {resUser.name} : {resUser.id} for reason {reason}",
+                                                    "error": e},
                                                    placeholders={}, interaction=interaction)
                     else:
                         deafenMembers.append(resUser)
@@ -500,7 +508,8 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"message":
-                                 f"Couldn't undeafen user {user.name} : {user.id} for reason {reason}", "error": e},
+                                                        f"Couldn't undeafen user {user.name} : {user.id} for reason {reason}",
+                                                    "error": e},
                                                    placeholders={}, interaction=interaction)
                     else:
                         removeDeafenMembers.append(user)
@@ -509,8 +518,8 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await utils.userDeafen(resUser, False, reason=reason)
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
-                                                   {"error": e,"message":
-                                         f"Couldn't undeafen user {resUser.name} : {resUser.id} for reason {reason}"},
+                                                   {"error": e, "message":
+                                                       f"Couldn't undeafen user {resUser.name} : {resUser.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
                     else:
                         removeDeafenMembers.append(resUser)
@@ -534,7 +543,8 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"message":
-                        f"Couldn't muted user {user.name} : {user.id} for reason {reason}", "error": e},
+                                                        f"Couldn't muted user {user.name} : {user.id} for reason {reason}",
+                                                    "error": e},
                                                    placeholders={}, interaction=interaction)
                     else:
                         removeMutedMembers.append(user)
@@ -544,7 +554,8 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"message":
-                                 f"Couldn't muted user {resUser.name} | {resUser.id} for reason {reason}", "error": e},
+                                                        f"Couldn't muted user {resUser.name} | {resUser.id} for reason {reason}",
+                                                    "error": e},
                                                    placeholders={}, interaction=interaction)
                     else:
                         removeMutedMembers.append(resUser)
@@ -568,7 +579,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e,
-                                    "message": f"Couldn't unmute user {user.name} | {user.id} for reason {reason}"},
+                                                    "message": f"Couldn't unmute user {user.name} | {user.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
                     else:
                         removeMutedMembers.append(user)
@@ -579,7 +590,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e,
-                               "message": f"Couldn't unmute user {resUser.name} | {resUser.id} for reason {reason}"},
+                                                    "message": f"Couldn't unmute user {resUser.name} | {resUser.id} for reason {reason}"},
                                                    placeholders={}, interaction=interaction)
                     else:
                         removeMutedMembers.append(resUser)
@@ -602,7 +613,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
             listData = [listData] if isinstance(listData, dict) else []
         elif len(listData) == 0:
             await messages.handleError(bot, commandName, executedPath,
-                        "No data has been provided. Expected map! Example: {'role_id': ..., 'role_name':...}",
+                                       "No data has been provided. Expected map! Example: {'role_id': ..., 'role_name':...}",
                                        placeholders={}, interaction=interaction)
             break
 
@@ -611,6 +622,12 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
             await messages.handleError(bot, commandName, executedPath, checkReason, placeholders={},
                                        interaction=interaction)
             break
+
+        if guildToDo not in ["role_create", "role_delete", "role_edit", "overview", "category_create",
+                             "category_delete", "channel_create", "channel_delete", "channel_edit"]:
+            continue
+
+        executedPath = await handleExecutionPathFormat(executedPath, guildToDo)
 
         guild_id = guild.id
         guild_name = guild.name
@@ -621,9 +638,9 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                     role = await utils.createRole(rolesData, guild)
                 except Exception as e:
                     await messages.handleError(bot, commandName, executedPath,
-                                               {"error": e,"message":
-                                 f"Couldn't create role {rolesData.get('name')} for reason {rolesData.get('reason')} "
-                                                    f"in guild {guild_name} : {guild_id}"},
+                                               {"error": e, "message":
+                                                   f"Couldn't create role {rolesData.get('name')} for reason {rolesData.get('reason')} "
+                                                   f"in guild {guild_name} : {guild_id}"},
                                                placeholders={}, interaction=interaction)
                     continue
                 duration: int = int(rolesData.get("duration", -1))
@@ -642,8 +659,8 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
-                                     f"Couldn't delete role {selectedRole.name} : {selectedRole.id} " +
-                                       f"for reason {rolesData.get('reason')} in guild {guild_name} : {guild_id}"},
+                                                       f"Couldn't delete role {selectedRole.name} : {selectedRole.id} " +
+                                                       f"for reason {rolesData.get('reason')} in guild {guild_name} : {guild_id}"},
                                                    placeholders={}, interaction=interaction)
                     else:
                         roles.append(selectedRole)
@@ -666,8 +683,8 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
-                            f"Couldn't edit role {role.name} : {role.id} for reason {rolesData.get('reason')} " +
-                                                        f"in guild {guild_name} : {guild_id}"},
+                                                       f"Couldn't edit role {role.name} : {role.id} for reason {rolesData.get('reason')} " +
+                                                       f"in guild {guild_name} : {guild_id}"},
                                                    placeholders={}, interaction=interaction)
                     else:
                         edited[role] = prevStatus
@@ -687,7 +704,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                 except Exception as e:
                     await messages.handleError(bot, commandName, executedPath,
                                                {"error": e, "message":
-                                                f"Couldn't edit guild {guild_name} : {guild_id} for reason {reason}"},
+                                                   f"Couldn't edit guild {guild_name} : {guild_id} for reason {reason}"},
                                                placeholders={}, interaction=interaction)
                     continue
 
@@ -711,8 +728,8 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                     await messages.handleError(bot, commandName, executedPath,
                                                {"error": e, "message":
                                                    f"Couldn't create category {categoryData.get('name')}"
-                                                           f" for reason {categoryData.get('reason')} " +
-                                                           f"in guild {guild_name} : {guild_id}"},
+                                                   f" for reason {categoryData.get('reason')} " +
+                                                   f"in guild {guild_name} : {guild_id}"},
                                                placeholders={}, interaction=interaction)
 
                     continue
@@ -763,8 +780,8 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
                                                        f"Couldn't edit category {categoryData.get('name')}"
-                                                               f" for reason {categoryData.get('reason')} " +
-                                                               f"in guild {guild_name} : {guild_id}"},
+                                                       f" for reason {categoryData.get('reason')} " +
+                                                       f"in guild {guild_name} : {guild_id}"},
                                                    placeholders={}, interaction=interaction)
                     else:
                         editedCategories[category] = categoryPrevData
@@ -785,8 +802,8 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                     await messages.handleError(bot, commandName, executedPath,
                                                {"error": e, "message":
                                                    f"Couldn't create channel {channelData.get('name')}"
-                                                           f" for reason {channelData.get('reason')} " +
-                                                           f"in guild {guild_name} : {guild_id}"},
+                                                   f" for reason {channelData.get('reason')} " +
+                                                   f"in guild {guild_name} : {guild_id}"},
                                                placeholders={}, interaction=interaction)
                     continue
 
@@ -809,8 +826,8 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
                                                        f"Couldn't delete channel {channelData.get('name')}"
-                                                               f" for reason {reason} " +
-                                                               f"in guild {guild_name} : {guild_id}"},
+                                                       f" for reason {reason} " +
+                                                       f"in guild {guild_name} : {guild_id}"},
                                                    placeholders={}, interaction=interaction)
                     else:
                         deletedChannels.append(channel)
@@ -835,8 +852,8 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
                                                        f"Couldn't edit channel {channelData.get('name')}"
-                                                               f" for reason {channelData.get('reason')} " +
-                                                               f"in guild {guild_name} : {guild_id}"},
+                                                       f" for reason {channelData.get('reason')} " +
+                                                       f"in guild {guild_name} : {guild_id}"},
                                                    placeholders={}, interaction=interaction)
                     else:
                         editedChannels[channel] = channelPrevData
@@ -848,6 +865,18 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                         functionArgs=[editedChannels,
                                                       str(channelData.get("channel_edit_reason", ""))],
                                         **defaultArguments)
+
+
+async def handleExecutionPathFormat(executedPath, guildToDo):
+    if guildToDo not in executedPath:
+        if executedPath.count("/") > 1:
+            pathSpl = executedPath.split("/")
+            for i in range(len(pathSpl) - 1):
+                executedPath += f"{pathSpl[i]}/"
+            executedPath = executedPath[:-1]
+        else:
+            executedPath += f"/{guildToDo}"
+    return executedPath
 
 
 async def handleAllActions(bot: commands.Bot, actionData: dict, interaction: discord.Interaction) -> dict:
@@ -890,12 +919,3 @@ async def handleErrorActions(bot: commands.Bot, errorPath: str, interaction: dis
     for action in utils.configManager.getErrorActions(errorPath):
         actionData[action] = utils.configManager.getActionData(action).copy()
     return await handleAllActions(bot, actionData, interaction)
-
-
-
-
-
-
-
-
-

@@ -15,7 +15,11 @@
       "fields": {"error":  "/error/", "path":  "/error_path/"}
     },
     "reload:mymessage": {
-      "title": "You have error in Reload command",
+      "title": "You have error in Reload command | :mymessage",
+      "fields": {"error":  "/error/", "path":  "/error_path/"}
+    },
+    "reload:error": {
+      "title": "You have error in Reload command | :error",
       "fields": {"error":  "/error/", "path":  "/error_path/"}
     }
   },

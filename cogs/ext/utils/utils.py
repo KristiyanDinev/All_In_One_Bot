@@ -92,6 +92,8 @@ def allRolesContains(roles_id: list, roles_id2: list) -> bool:
 async def isUserRestricted(bot: commands.Bot, commandName: str, executionPath: str,
                            interaction: discord.Interaction | None = None,
                            ctx: discord.ext.commands.context.Context | None = None) -> tuple:
+    if interaction is None and ctx is None:
+        return "", []
     res = configManager.getCommandRestrictions(commandName)
     reason: str = ""
     messagesList: list = []
@@ -112,11 +114,11 @@ async def isUserRestricted(bot: commands.Bot, commandName: str, executionPath: s
                 reason += f"Expected map for {option} in command restrictions, but got type {type(data)}"
                 break
         dataReason = data.get("reason", "")
-        userRoleId: list = getRoleIdFromRoles(interaction.user.roles)
+        userRoleId: list = getRoleIdFromRoles(interaction.user.roles if interaction is not None else ctx.author.roles)
         status = data.get("status", [])
         if option == "all":
             if bool(data.get("status", True)):
-                return reason
+                return reason, messagesList
             else:
                 reason += dataReason
         elif (option == "users_id" and isinstance(status, list) and
