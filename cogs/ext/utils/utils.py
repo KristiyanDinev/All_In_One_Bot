@@ -96,15 +96,15 @@ async def isUserRestricted(bot: commands.Bot, commandName: str, executionPath: s
         return "", []
     res = configManager.getCommandRestrictions(commandName)
     reason: str = ""
-    messagesList: list = []
+    actionList: list = []
 
     for option, data in res.items():
         if not isinstance(data, dict):
-            if option == "messages":
+            if option == "actions":
                 if not isinstance(data, list):
                     reason += f"Expected list for messages in command restrictions, but got type {type(data)}"
                 else:
-                    messagesList = data
+                    actionList = data
                 continue
             else:
                 await messages.handleError(bot, commandName, executionPath,
@@ -118,7 +118,7 @@ async def isUserRestricted(bot: commands.Bot, commandName: str, executionPath: s
         status = data.get("status", [])
         if option == "all":
             if bool(data.get("status", True)):
-                return reason, messagesList
+                return reason, actionList
             else:
                 reason += dataReason
         elif (option == "users_id" and isinstance(status, list) and
@@ -132,7 +132,7 @@ async def isUserRestricted(bot: commands.Bot, commandName: str, executionPath: s
               (interaction.channel.id if interaction is not None else ctx.channel.id) not in status):
             reason += dataReason
 
-    return reason, messagesList
+    return reason, actionList
 
 
 def separateThread(loop, func, *args):

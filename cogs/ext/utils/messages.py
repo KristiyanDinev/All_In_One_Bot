@@ -43,15 +43,26 @@ async def handleMessageResponse(msg: str | None, embed: discord.Embed | None, bu
             if buttonView is not None:
                 await interaction.response.send_message(view=buttonView(), ephemeral=isEph)
     if ctx is not None:
-        if embed is not None:
-            await ctx.reply(embed=embed, ephemeral=isEph)
-            # await ctx.send(embed=embed)
-        if hasMessage:
-            await ctx.reply(msg, ephemeral=isEph)
-            # await ctx.send(msg)
-        if buttonView is not None:
-            await ctx.reply(view=buttonView(), ephemeral=isEph)
-            #await ctx.send(view=buttonView())
+        hasReplied = False
+        async for message in ctx.channel.history(after=ctx.message, limit=100):
+            if (message.reference and message.reference.message_id == ctx.message.id and
+                    message.author.id == ctx.bot.user.id):
+                hasReplied = True
+                break
+        if hasReplied:
+            if embed is not None:
+                await ctx.send(embed=embed)
+            if hasMessage:
+                await ctx.send(msg)
+            if buttonView is not None:
+                await ctx.send(view=buttonView())
+        else:
+            if embed is not None:
+                await ctx.reply(embed=embed, ephemeral=isEph)
+            if hasMessage:
+                await ctx.reply(msg, ephemeral=isEph)
+            if buttonView is not None:
+                await ctx.reply(view=buttonView(), ephemeral=isEph)
     if channel is not None:
         if embed is not None:
             await channel.send(embed=embed)
@@ -181,12 +192,14 @@ async def isCommandRestricted(bot: commands.Bot, commandName: str, executionPath
     if interaction is None and ctx is None:
         return False
     else:
-        reason, messagesList = await utils.isUserRestricted(bot, commandName, executionPath, interaction=interaction,
-                                                            ctx=ctx)
+        reason, actionList = await utils.isUserRestricted(bot, commandName, executionPath, interaction=interaction,
+                                                          ctx=ctx)
         if len(reason.replace(" ", "")) > 0:
-            await handleMessage(bot, commandName, executionPath, allMessages=messagesList,
-                                placeholders={utils.configManager.getReasonPlaceholder(): reason},
-                                interaction=interaction, ctx=ctx)
+            actionData: dict = dict()
+            for action in actionList:
+                actionData[action] = utils.configManager.getActionData(action).copy()
+            await actions.handleAllActions(bot, actionData, interaction=interaction, ctx=ctx,
+                                           placeholders={utils.configManager.getReasonPlaceholder(): reason})
             return True
         return False
 
@@ -352,6 +365,7 @@ async def handleMessage(bot: commands.Bot, commandName: str, executionPath: str,
         else:
             mainData: dict = await MainBuild(bot, commandName, executionPath=executionPath, placeholders=placeholders,
                                              allMessages=allMessages, interaction=interaction, ctx=ctx)
+        print(mainData)
         error, execPath = await sendResponse(mainData, DMUser=DMUser, interaction=interaction, ctx=ctx)
         if error is not None:
             raise Exception(error)
@@ -379,17 +393,17 @@ async def handleError(bot: commands.Bot, commandName: str, executionPath: str, e
                                                                               placeholders=placeholders,
                                                                               interaction=interaction,
                                                                               ctx=ctx), DMUser=None, ctx=ctx,
-                                                                              interaction=interaction)
+                                                         interaction=interaction)
             if exError is not None:
                 raise Exception(exError)
         except Exception as ex:
             if utils.configManager.isPrintError():
                 print("original error:", error, "follow up error:", ex)
             errorData["error"] = False
-            errorData["actions"] = False
         else:
             errorData["error"] = True
-            errorData["actions"] = await actions.handleErrorActions(bot, executionPath, interaction)
+            await actions.handleErrorActions(bot, executionPath, interaction=interaction, ctx=ctx,
+                                             placeholders=placeholders)
     return errorData
 
 

@@ -14,12 +14,8 @@
       "title": "You have error in your action",
       "fields": {"error":  "/error/", "path":  "/error_path/"}
     },
-    "reload:mymessage": {
-      "title": "You have error in Reload command | :mymessage",
-      "fields": {"error":  "/error/", "path":  "/error_path/"}
-    },
-    "reload:error": {
-      "title": "You have error in Reload command | :error",
+    "reload:reload_message": {
+      "title": "You have error in Reload command",
       "fields": {"error":  "/error/", "path":  "/error_path/"}
     }
   },
@@ -32,18 +28,16 @@
     "disable_cog": ["Disabled cog: /username/"],
     "simple_dm": ["dm from /username/ say /message/"],
     "sync_msg": ["Synced commands /number/"],
+    "reload_message": ["Reloaded the config"],
     "bot_loads": ["/username/ is online | ID: /number/"],
     "test_msg": ["Test"]
   },
 
   "channel_messages": {
-    "mymessage": {
-      "messages": ["test_msg"],
+    "ready": {
+      "messages": ["bot_loads"],
       "embeds": [],
       "views": []
-    },
-    "ready": {
-      "messages": ["bot_loads"]
     }
   },
 

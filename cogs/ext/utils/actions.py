@@ -11,72 +11,75 @@ import cogs.ext.utils.utils as utils
 import cogs.ext.utils.messages as messages
 
 
-async def handleActionMessages(interaction: discord.Interaction, messages_names: list, commandName: str,
-                               executionPath: str) -> dict:
+async def handleActionMessages(messages_names: list, commandName: str,
+                               executionPath: str, placeholders: dict, interaction: discord.Interaction | None = None,
+                               ctx: discord.ext.commands.context.Context | None = None):
     # action = name of the action
     # doing = messages
-    statusData: dict = {}
+    placeholders[utils.configManager.getActionPathPlaceholder()] = executionPath
     for msg in messages_names:
         messageData: dict = await messages.handleMessage(interaction.client, commandName, executionPath,
-                                                         singleMessage=msg,
-                                                         placeholders={
-                                                             utils.configManager.getActionPathPlaceholder(): executionPath},
-                                                         interaction=interaction)
-        statusData.update(messageData)
+                                                         singleMessage=msg, placeholders=placeholders,
+                                                         interaction=interaction, ctx=ctx)
         if not messageData["message"]:
-            return statusData
-    return statusData
+            return
 
 
-async def handleCogCommandExecution(cog: commands.Cog, interaction: discord.Interaction,
-                                    commandName: str,
-                                    command: discord.app_commands.commands.ContextMenu, finalArgs: list,
-                                    executionPath: str) -> dict:
-    commandData: dict = {"executed": False, "execution_error": {}}
+async def handleCogCommandExecution(cog: commands.Cog,
+                                    command: Any, finalArgs: list,
+                                    executionPath: str, placeholders: dict,
+                                    interaction: discord.Interaction | None = None,
+                                    ctx: discord.ext.commands.context.Context | None = None):
+    bot = interaction.client if interaction is not None else ctx.bot
     for co in cog.get_app_commands():
-        if co.name == commandName:
+        if co.name == command.name:
             try:
-                await command.callback(cog, interaction, *finalArgs)
+                await command.callback(cog, interaction if interaction is not None else ctx, *finalArgs)
             except Exception as e:
-                commandData["executed"] = False
-                commandData["execution_error"] = await messages.handleError(interaction.client, commandName,
-                                                                            executionPath, e,
-                                                                            placeholders={}, interaction=interaction)
-            else:
-                commandData["executed"] = True
-            return commandData
-    return commandData
+                await messages.handleError(bot, command.name, executionPath, e, placeholders=placeholders,
+                                           ctx=ctx, interaction=interaction)
 
 
-async def handleActionCommands(interaction: discord.Interaction, commandsData: dict, executedPath: str) -> dict:
-    # command: {command status}
-    commandsExecutionData: dict = dict()
-    for command in commandsData.keys():
-        comm: discord.app_commands.commands.ContextMenu | None = interaction.client.tree.get_command(command)
+async def handleActionCommands(bot: commands.Bot, commandsData: list, executedPath: str,
+                               placeholders: dict, commandName: str, interaction: discord.Interaction | None = None,
+                               ctx: discord.ext.commands.context.Context | None = None):
+    for singleCommandData in commandsData:
+        if not isinstance(singleCommandData, dict):
+            await messages.handleError(bot, commandName, executedPath,
+                                "Expected command data to be map. Example: {'command': ['argument']}. But got type " +
+                                       f"{type(singleCommandData)}",
+                                       placeholders=placeholders, interaction=interaction)
+            break
+        command = str(singleCommandData.get("command"))
+        isCommandApp = str(singleCommandData.get("type", "")) == "app"
+        comm = bot.tree.get_command(command) if isCommandApp else bot.get_command(command)
         if comm is not None:
-            args = commandsData.get(command, [])
+            args = singleCommandData.get("args", [])
             if not isinstance(args, list):
                 args = []
 
+            for placeholder in placeholders.keys():
+                if placeholder in args:
+                    ind = args.index(placeholder)
+                    args.pop(ind)
+                    args.insert(ind, placeholders.get(placeholder))
+
             executed = False
             for name, file_name in utils.configManager.getCogData().items():
-                cog: commands.Cog = interaction.client.get_cog(name)
-                for cogCommand in cog.get_app_commands():
+                cog: commands.Cog = bot.get_cog(name)
+                for cogCommand in cog.get_app_commands() if isCommandApp else cog.get_commands():
                     if cogCommand.name == comm.name:
                         try:
-                            await interaction.client.load_extension(f"cogs.{file_name}")
+                            await bot.load_extension(f"cogs.{file_name}")
                         except commands.ExtensionAlreadyLoaded:
-                            commandsExecutionData[comm] = await handleCogCommandExecution(cog, interaction, comm.name,
-                                                                                          comm, args, executedPath)
-                        else:
+                            await handleCogCommandExecution(cog, comm, args, executedPath, placeholders,
+                                                            interaction=interaction, ctx=ctx)
                             executed = True
-                            commandsExecutionData["success"] = "Command has been executed"
+                        else:
+                            await bot.unload_extension(f"cogs.{file_name}")
                         break
                 if executed:
                     break
-        else:
-            commandsExecutionData["error"] = "No such app command"
-    return commandsExecutionData
 
 
 def startBackgroundTask(**taskArgs):
@@ -88,7 +91,8 @@ def startBackgroundTask(**taskArgs):
             interaction = tasks["interaction"]
             if not interaction.is_expired():
                 await messages.handleError(tasks["bot"], tasks["commandName"], tasks["executedPath"], e,
-                                           placeholders={}, interaction=interaction)
+                                           placeholders=tasks["placeholders"], interaction=interaction,
+                                           ctx=tasks["ctx"])
 
     threading.Thread(target=utils.separateThread, args=(asyncio.get_running_loop(), wait, taskArgs),
                      daemon=True).start()
@@ -213,7 +217,7 @@ async def actionChannelEdit(channels: Dict[discord.CategoryChannel, Dict], reaso
 
 
 async def handleUser(interaction: discord.Interaction, userData: dict, bot: commands.Bot, commandName: str,
-                     executedPath: str):
+                     executedPath: str, placeholders: dict):
     for userDo in userData.keys():
         userDoDataList: list = userData.get(userDo, [])
         if not isinstance(userDoDataList, list):
@@ -221,13 +225,13 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
         elif len(userDoDataList) == 0:
             await messages.handleError(bot, commandName, executedPath,
                                        "Expected a map! Example: {'interact_both': False, 'user_id': ...}",
-                                       placeholders={}, interaction=interaction)
+                                       placeholders=placeholders, interaction=interaction)
             break
 
         checkReason = checkIFAnyValuableData(userDoDataList)
         if len(checkReason) > 0:
             await messages.handleError(bot, commandName, executedPath, checkReason,
-                                       placeholders={}, interaction=interaction)
+                                       placeholders=placeholders, interaction=interaction)
             break
         user = interaction.user
         defaultArguments = {"bot": bot, "interaction": interaction, "duration": -1, "commandName": commandName,
@@ -250,7 +254,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath, {"error": e,
                                                                                     "message": f"Couldn't ban user {user.name} : {user.id} for reason {reason}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         usersBanned.append(user)
 
@@ -260,7 +264,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath, {"error": e,
                                                                                     "message": f"Couldn't ban user {userToBan.name} : {userToBan.id} for reason {reason}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         usersBanned.append(userToBan)
 
@@ -284,7 +288,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
                                                        f"Couldn't unban user {user.name} : {user.id} for reason {reason}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         usersUnbanned.append(user)
 
@@ -296,7 +300,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"error": e,
                                                     "message":
                                                         f"Couldn't unban user {resUser.name} : {resUser.id} for reason {reason}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         usersUnbanned.append(user)
 
@@ -318,7 +322,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"error": e,
                                                     "message":
                                                         f"Couldn't kick user {user.name} : {user.id} for reason {reason}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
 
                 for resUser in users:
                     try:
@@ -328,7 +332,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"error": e,
                                                     "message":
                                                         f"Couldn't kick user {resUser.name} : {resUser.id} for reason {reason}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
         elif userDo == "role_add":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
@@ -346,7 +350,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                             await messages.handleError(bot, commandName, executedPath,
                                                        {"error": e, "message":
                                                            f"Couldn't add role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"},
-                                                       placeholders={}, interaction=interaction)
+                                                       placeholders=placeholders, interaction=interaction)
                         else:
                             roleAdded[role].append(user)
 
@@ -358,7 +362,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                        {"error": e,
                                                         "message":
                                                             f"Couldn't add role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"},
-                                                       placeholders={}, interaction=interaction)
+                                                       placeholders=placeholders, interaction=interaction)
 
                         else:
                             roleAdded[role].append(resUser)
@@ -389,7 +393,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                             await messages.handleError(bot, commandName, executedPath,
                                                        {"error": e, "message":
                                                            f"Couldn't remove role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"},
-                                                       placeholders={}, interaction=interaction)
+                                                       placeholders=placeholders, interaction=interaction)
                         else:
                             roleRemoved[role].append(user)
                     for resUser in users:
@@ -399,7 +403,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                             await messages.handleError(bot, commandName, executedPath,
                                                        {"error": e, "message":
                                                            f"Couldn't remove role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"},
-                                                       placeholders={}, interaction=interaction)
+                                                       placeholders=placeholders, interaction=interaction)
                         else:
                             roleRemoved[role].append(resUser)
                 hasData = False
@@ -420,7 +424,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                 if "until" not in userDoData.keys():
                     await messages.handleError(bot, commandName, executedPath,
                                                "Until data is invalid! Format expected: YYYY-MM-DDTHH:MM:SS",
-                                               placeholders={}, interaction=interaction)
+                                               placeholders=placeholders, interaction=interaction)
                     break
                 else:
                     try:
@@ -429,7 +433,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
                                                        "Until data is invalid! Format expected: YYYY-MM-DDTHH:MM:SS"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                         break
                 timeoutedMembers: list = []
                 if bool(userDoData.get("interact_both", True)):
@@ -439,7 +443,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
                                                        f"Couldn't timeout user {user.name} : {user.id} to date {strptime}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
 
                     else:
                         timeoutedMembers.append(user)
@@ -450,7 +454,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
                                                        f"Couldn't timeout user {resUser.name} : {resUser.id} to date {strptime}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         timeoutedMembers.append(resUser)
                 if duration > 0 and len(timeoutedMembers) > 0:
@@ -474,7 +478,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"message":
                                                         f"Couldn't deafen user {user.name} : {user.id} for reason {reason}",
                                                     "error": e},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         deafenMembers.append(user)
                 for resUser in utils.getUsers(userDoData, interaction.guild):
@@ -485,7 +489,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"message":
                                                         f"Couldn't deafen user {resUser.name} : {resUser.id} for reason {reason}",
                                                     "error": e},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         deafenMembers.append(resUser)
 
@@ -510,7 +514,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"message":
                                                         f"Couldn't undeafen user {user.name} : {user.id} for reason {reason}",
                                                     "error": e},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         removeDeafenMembers.append(user)
                 for resUser in users:
@@ -520,7 +524,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
                                                        f"Couldn't undeafen user {resUser.name} : {resUser.id} for reason {reason}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         removeDeafenMembers.append(resUser)
 
@@ -545,7 +549,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"message":
                                                         f"Couldn't muted user {user.name} : {user.id} for reason {reason}",
                                                     "error": e},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         removeMutedMembers.append(user)
                 for resUser in users:
@@ -556,7 +560,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                                                    {"message":
                                                         f"Couldn't muted user {resUser.name} | {resUser.id} for reason {reason}",
                                                     "error": e},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         removeMutedMembers.append(resUser)
 
@@ -580,7 +584,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e,
                                                     "message": f"Couldn't unmute user {user.name} | {user.id} for reason {reason}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         removeMutedMembers.append(user)
 
@@ -591,7 +595,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e,
                                                     "message": f"Couldn't unmute user {resUser.name} | {resUser.id} for reason {reason}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         removeMutedMembers.append(resUser)
 
@@ -603,7 +607,7 @@ async def handleUser(interaction: discord.Interaction, userData: dict, bot: comm
 
 
 async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: commands.Bot, commandName: str,
-                      executedPath: str):
+                      executedPath: str, placeholders: dict):
     guild = interaction.guild
     defaultArguments = {"bot": bot, "interaction": interaction, "duration": -1, "commandName": commandName,
                         "executedPath": executedPath}
@@ -614,12 +618,12 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
         elif len(listData) == 0:
             await messages.handleError(bot, commandName, executedPath,
                                        "No data has been provided. Expected map! Example: {'role_id': ..., 'role_name':...}",
-                                       placeholders={}, interaction=interaction)
+                                       placeholders=placeholders, interaction=interaction)
             break
 
         checkReason = checkIFAnyValuableData(listData)
         if len(checkReason) > 0:
-            await messages.handleError(bot, commandName, executedPath, checkReason, placeholders={},
+            await messages.handleError(bot, commandName, executedPath, checkReason, placeholders=placeholders,
                                        interaction=interaction)
             break
 
@@ -641,7 +645,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                {"error": e, "message":
                                                    f"Couldn't create role {rolesData.get('name')} for reason {rolesData.get('reason')} "
                                                    f"in guild {guild_name} : {guild_id}"},
-                                               placeholders={}, interaction=interaction)
+                                               placeholders=placeholders, interaction=interaction)
                     continue
                 duration: int = int(rolesData.get("duration", -1))
                 if duration > 0:
@@ -661,7 +665,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                    {"error": e, "message":
                                                        f"Couldn't delete role {selectedRole.name} : {selectedRole.id} " +
                                                        f"for reason {rolesData.get('reason')} in guild {guild_name} : {guild_id}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         roles.append(selectedRole)
                 duration: int = int(rolesData.get("duration", -1))
@@ -685,7 +689,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                    {"error": e, "message":
                                                        f"Couldn't edit role {role.name} : {role.id} for reason {rolesData.get('reason')} " +
                                                        f"in guild {guild_name} : {guild_id}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         edited[role] = prevStatus
                 duration: int = int(rolesData.get("duration", -1))
@@ -705,7 +709,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                     await messages.handleError(bot, commandName, executedPath,
                                                {"error": e, "message":
                                                    f"Couldn't edit guild {guild_name} : {guild_id} for reason {reason}"},
-                                               placeholders={}, interaction=interaction)
+                                               placeholders=placeholders, interaction=interaction)
                     continue
 
                 prevData: dict = dict()
@@ -730,7 +734,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                    f"Couldn't create category {categoryData.get('name')}"
                                                    f" for reason {categoryData.get('reason')} " +
                                                    f"in guild {guild_name} : {guild_id}"},
-                                               placeholders={}, interaction=interaction)
+                                               placeholders=placeholders, interaction=interaction)
 
                     continue
                 duration: int = int(categoryData.get("duration", -1))
@@ -755,7 +759,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                     "message": f"Couldn't delete category {categoryData.get('name')}"
                                                                f" for reason {reason} " +
                                                                f"in guild {guild_name} : {guild_id}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         deletedCategories.append(category)
 
@@ -782,7 +786,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                        f"Couldn't edit category {categoryData.get('name')}"
                                                        f" for reason {categoryData.get('reason')} " +
                                                        f"in guild {guild_name} : {guild_id}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         editedCategories[category] = categoryPrevData
 
@@ -804,7 +808,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                    f"Couldn't create channel {channelData.get('name')}"
                                                    f" for reason {channelData.get('reason')} " +
                                                    f"in guild {guild_name} : {guild_id}"},
-                                               placeholders={}, interaction=interaction)
+                                               placeholders=placeholders, interaction=interaction)
                     continue
 
                 duration: int = int(channelData.get("duration", -1))
@@ -828,7 +832,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                        f"Couldn't delete channel {channelData.get('name')}"
                                                        f" for reason {reason} " +
                                                        f"in guild {guild_name} : {guild_id}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         deletedChannels.append(channel)
                 duration: int = int(channelData.get("duration", -1))
@@ -854,7 +858,7 @@ async def handleGuild(interaction: discord.Interaction, guildData: dict, bot: co
                                                        f"Couldn't edit channel {channelData.get('name')}"
                                                        f" for reason {channelData.get('reason')} " +
                                                        f"in guild {guild_name} : {guild_id}"},
-                                                   placeholders={}, interaction=interaction)
+                                                   placeholders=placeholders, interaction=interaction)
                     else:
                         editedChannels[channel] = channelPrevData
 
@@ -879,43 +883,34 @@ async def handleExecutionPathFormat(executedPath, guildToDo):
     return executedPath
 
 
-async def handleAllActions(bot: commands.Bot, actionData: dict, interaction: discord.Interaction) -> dict:
-    resultData: dict = dict()
+async def handleAllActions(bot: commands.Bot, actionData: dict, interaction: discord.Interaction | None = None,
+                           ctx: discord.ext.commands.context.Context | None = None,
+                           placeholders: dict = dict()):
     for action in actionData.keys():
-        resultData[action] = dict()
         for doing in actionData.get(action).keys():
-            resultData[action][doing] = dict()
             executionPath = action + "/" + doing
-            resultData[action][doing]["execution_path"] = executionPath
             if doing == "messages":
-                resultData[action][doing]["status"] = await handleActionMessages(interaction,
-                                                                                 list(actionData.get(action, {})
-                                                                                      .get(doing, [])).copy(),
-                                                                                 action, executionPath)
+                await handleActionMessages(list(actionData.get(action, {}).get(doing, [])).copy(),
+                                           action, executionPath, placeholders, interaction=interaction, ctx=ctx)
 
             elif doing == "commands":
-                resultData[action][doing]["status"] = await handleActionCommands(interaction,
-                                                                                 dict(actionData.get(action, {})
-                                                                                      .get(doing, {})).copy(),
-                                                                                 executionPath)
+                await handleActionCommands(bot, list(actionData.get(action, {}).get(doing, [])).copy(),
+                                           executionPath, placeholders, action, interaction=interaction, ctx=ctx)
 
             elif doing == "user":
-                resultData[action][doing]["status"] = await handleUser(interaction,
-                                                                       dict(actionData.get(action, {})
-                                                                            .get(doing, {})).copy(),
-                                                                       bot, action, executionPath)
+                await handleUser(dict(actionData.get(action, {}).get(doing, {})).copy(), bot, action,
+                                 executionPath, placeholders, interaction=interaction, ctx=ctx)
 
             elif doing == "guild":
-                resultData[action][doing]["status"] = await handleGuild(interaction,
-                                                                        dict(actionData.get(action, {})
-                                                                             .get(doing, {})).copy(),
-                                                                        bot, action, executionPath)
-    return resultData
+                await handleGuild(dict(actionData.get(action, {}).get(doing, {})).copy(), bot, action,
+                                  executionPath, placeholders, interaction=interaction, ctx=ctx)
 
 
-async def handleErrorActions(bot: commands.Bot, errorPath: str, interaction: discord.Interaction) -> dict:
+async def handleErrorActions(bot: commands.Bot, errorPath: str, interaction: discord.Interaction | None = None,
+                             ctx: discord.ext.commands.context.Context | None = None,
+                             placeholders: dict = dict()):
     # 'idk' -> {'messages' : [....]}
     actionData: dict = dict()
     for action in utils.configManager.getErrorActions(errorPath):
         actionData[action] = utils.configManager.getActionData(action).copy()
-    return await handleAllActions(bot, actionData, interaction)
+    await handleAllActions(bot, actionData, interaction=interaction, ctx=ctx, placeholders=placeholders)

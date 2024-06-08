@@ -21,6 +21,9 @@
     "errors": {
     },
     "actions": {
+        "command_restriction": {
+            "messages": ["restricted"]
+        }
     },
     "webhooks": {
         "update_hook": "https://discord.com/api/webhooks/1234425760694009856/6qzNKIqqIzSmCaLMAZVoiWmSPtTHgCI5j81rhIqrnKLQey2ECqSo591oY6V-YQbdd5ur"
@@ -50,8 +53,8 @@
     "print_error_if_original_error_fails": true,
     "command_restriction": {
         "reload": {
-            "all": {"reason": "Everyone can not use it", "status": true},
-            "messages": ["restricted"]
+            "all": {"reason": "Everyone can not use it", "status": false},
+            "actions": ["command_restriction"]
         }
     },
     "discord_bot_token": ""

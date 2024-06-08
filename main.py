@@ -89,7 +89,6 @@ async def on_ready():
     for loc in FindAll("cogs", exclusions=["__init__.py", "cogs\\ext", "cogs\\ext\\utils", "moderator_cog.py"]):
         await bot.load_extension(name=loc)
     print('Bot:', bot.user.name)
-    """
     res = await messages.handleMessage(bot, "on_ready", "on_ready",
                                        placeholders={utils.configManager.getUsernamePlaceholder(): bot.user.name,
                                                      utils.configManager.getNumberPlaceholder(): bot.user.id},
@@ -97,8 +96,6 @@ async def on_ready():
     print("message", "success" if res["message"] else "failed")
     print("error", "success" if res["error"] else "no error / failed")
     print("error_actions", "success" if res["error_actions"] else " no error / failed")
-    """
-
 
 
 @bot.command()
@@ -106,7 +103,6 @@ async def sync(ctx):
     if await messages.isCommandRestricted(bot, "sync", "sync",
                                           interaction=None, ctx=ctx):
         return
-
     synced = await bot.tree.sync()
     res = await messages.handleMessage(bot, "sync", "sync",
                                        placeholders={utils.configManager.getNumberPlaceholder(): str(len(synced))},
@@ -140,15 +136,23 @@ if __name__ == "__main__":
     bot.run(token)
 
 # TODO LIST
-# + handle reply line 22 in messages.py
-# + fix a lot of bugs
+# + add ctx to actions
+# + add documentation at the end of the project
 # + update command restrictions. Make them more custom.
-# + handle restricted command messages
 # + continue with guild actions
 
 
 """
 /*
+Actions
+"commands": [
+    {
+    'command': 'mycommand',
+    'args': ['azazazaza'],
+    'type': 'app'
+    }
+]
+
 "messages": {
     "avatar:mymessage": ["Error /error_path/"]
 }
