@@ -136,9 +136,7 @@ if __name__ == "__main__":
     bot.run(token)
 
 # TODO LIST
-# + add ctx to actions
 # + add documentation at the end of the project
-# + update command restrictions. Make them more custom.
 # + continue with guild actions
 
 

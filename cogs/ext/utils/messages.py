@@ -365,7 +365,6 @@ async def handleMessage(bot: commands.Bot, commandName: str, executionPath: str,
         else:
             mainData: dict = await MainBuild(bot, commandName, executionPath=executionPath, placeholders=placeholders,
                                              allMessages=allMessages, interaction=interaction, ctx=ctx)
-        print(mainData)
         error, execPath = await sendResponse(mainData, DMUser=DMUser, interaction=interaction, ctx=ctx)
         if error is not None:
             raise Exception(error)
