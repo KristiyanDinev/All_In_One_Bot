@@ -1,7 +1,7 @@
 import os, sys
 
 import cogs.ext.utils.utils as utils
-import cogs.ext.utils.messages as messages
+import cogs.ext.messages as messages
 
 """
 - ``0x<hex>``
@@ -129,8 +129,6 @@ if __name__ == "__main__":
 # TODO LIST
 # + add documentation at the end of the project
 # + add actions that gets data: create backups, load backups, gets url data, built-in webscraper, get message history, get members, get banned members, get roles, get channels, get categories, get emojis, get stickers
-# + add option to save that data in database (MySQL/Postgres)
-# + add option one bot to be in multiple servers
 # + add youtube music player
 # + add custom commands (application/prefix)
 # + add custom events (on_member_voice_update..., custom conditions, custom actions based on them)

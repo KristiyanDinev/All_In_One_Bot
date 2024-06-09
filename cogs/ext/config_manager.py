@@ -1,6 +1,4 @@
-from __future__ import annotations
-import random, os, json
-
+from cogs.ext.imports import *
 
 class ConfigManager:
     def __init__(self, configPath, messagesConfigPath, warningsConfigPath, commandsFolderPath):

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from discord import app_commands
-from discord.ext import commands
 
 from cogs.ext.utils.utils import *
-import cogs.ext.utils.messages as messages
+import cogs.ext.messages as messages
 
 
 async def setup(bot: commands.Bot):

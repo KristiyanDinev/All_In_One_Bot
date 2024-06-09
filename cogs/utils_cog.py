@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import discord.errors
 from discord import app_commands
-from discord.ext import commands
 from cogs.ext.utils.utils import *
-import cogs.ext.utils.messages as messages
+import cogs.ext.messages as messages
 
 async def setup(bot: commands.Bot):
     # guilds=[discord.Object(id=....)]
@@ -34,7 +33,7 @@ class UtilsCog(commands.Cog, name="Utils"):
         try:
             await self.bot.unload_extension(f"cogs.{given_cog_file_name}")
             await messages.handleMessage(self.bot, interaction, "disablecog",
-                                placeholders={configManager.getUsernamePlaceholder(): cog})
+                                         placeholders={configManager.getUsernamePlaceholder(): cog})
         except Exception as e:
             await messages.handleErrors(self.bot, interaction, "disablecog", e)
 
@@ -57,7 +56,7 @@ class UtilsCog(commands.Cog, name="Utils"):
         try:
             await self.bot.load_extension(f"cogs.{given_cog_file_name}")
             await messages.handleMessage(self.bot, interaction, "enablecog",
-                                placeholders={configManager.getUsernamePlaceholder(): cog})
+                                         placeholders={configManager.getUsernamePlaceholder(): cog})
         except Exception as e:
             await messages.handleErrors(self.bot, interaction, "enablecog", e)
 
@@ -73,19 +72,19 @@ class UtilsCog(commands.Cog, name="Utils"):
             except commands.ExtensionAlreadyLoaded:
                 #await ctx.send("Cog is loaded")
                 await messages.handleMessage(self.bot, interaction, "listcog",
-                                    placeholders={configManager.getUsernamePlaceholder(): name,
+                                             placeholders={configManager.getUsernamePlaceholder(): name,
                                                   configManager.getMessagePlaceholder(): configManager.getCogActiveStatus()})
 
             except commands.ExtensionNotFound:
                 #await ctx.send("Cog not found")
                 await messages.handleMessage(self.bot, interaction, "listcog",
-                                    placeholders={configManager.getUsernamePlaceholder(): name,
+                                             placeholders={configManager.getUsernamePlaceholder(): name,
                                                   configManager.getMessagePlaceholder(): configManager.getCogNotFoundStatus()})
             else:
                 #await ctx.send("Cog is unloaded")
                 await self.bot.unload_extension(f"cogs.{file_name}")
                 await messages.handleMessage(self.bot, interaction, "listcog",
-                                    placeholders={configManager.getUsernamePlaceholder(): name,
+                                             placeholders={configManager.getUsernamePlaceholder(): name,
                                                   configManager.getMessagePlaceholder(): configManager.getCogDeactiveStatus()})
 
     @commands.Cog.listener()

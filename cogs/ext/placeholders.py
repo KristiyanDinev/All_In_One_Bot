@@ -1,6 +1,4 @@
-import discord
-
-from cogs.ext.utils import utils
+from cogs.ext.imports import *
 
 
 def usePlaceholders(msg: str, placeholders: dict) -> str:

@@ -1,15 +1,4 @@
-from __future__ import annotations
-
-import asyncio
-import threading
-from datetime import datetime, timedelta
-from typing import List, Dict, Any
-
-import discord
-from discord.ext import commands
-import cogs.ext.utils.utils as utils
-import cogs.ext.utils.messages as messages
-
+from cogs.ext.imports import *
 
 async def handleActionMessages(bot: commands.Bot, messages_names: list, commandName: str,
                                executionPath: str, placeholders: dict, interaction: discord.Interaction | None = None,
@@ -215,6 +204,20 @@ async def actionChannelEdit(channels: Dict[discord.CategoryChannel, Dict], reaso
         await utils.editChannel(prevData, channel)
 
 
+async def actionCreateEmojis(emojis: List[discord.Emoji], reason: str):
+    for emoji in emojis:
+        data: dict = utils.getEmojiData(emoji)
+        data["reason"] = reason
+        await utils.createEmoji(data, emoji.guild)
+
+
+async def actionEditEmojis(emojis: Dict[discord.Emoji, Dict], reason: str):
+    for emoji, prevData in emojis.items():
+        prevData["reason"] = reason
+        prevData["new_name"] = prevData.pop("name")
+        await utils.editEmoji(prevData, emoji)
+
+
 async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                      executedPath: str, placeholders: dict, interaction: discord.Interaction | None = None,
                      ctx: discord.ext.commands.context.Context | None = None):
@@ -254,7 +257,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                         await utils.banUser(user, reason=reason)
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath, {"error": e,
-                                                                                    "message": f"Couldn't ban user {user.name} : {user.id} for reason {reason}"},
+                                 "message": f"Couldn't ban user {user.name} : {user.id} for reason {reason}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
                     else:
                         usersBanned.append(user)
@@ -266,6 +269,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                         await messages.handleError(bot, commandName, executedPath, {"error": e,
                                                                                     "message": f"Couldn't ban user {userToBan.name} : {userToBan.id} for reason {reason}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         usersBanned.append(userToBan)
 
@@ -291,6 +295,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                                                         f"Couldn't unban user "+
                                                         f"{resUser.name} : {resUser.id} for reason {reason}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         usersUnbanned.append(user)
 
@@ -322,6 +327,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                                                     "message":
                                                         f"Couldn't kick user {resUser.name} : {resUser.id} for reason {reason}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
         elif userDo == "role_add":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
@@ -338,7 +344,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                         except Exception as e:
                             await messages.handleError(bot, commandName, executedPath,
                                                        {"error": e, "message":
-                                                           f"Couldn't add role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"},
+                    f"Couldn't add role {role.name} : {role.id} to user {user.name} : {user.id} for reason {reason}"},
                                                        placeholders=placeholders, interaction=interaction, ctx=ctx)
                         else:
                             roleAdded[role].append(user)
@@ -352,7 +358,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                                                         "message":
                                                             f"Couldn't add role {role.name} : {role.id} to user {resUser.name} : {resUser.id} for reason {reason}"},
                                                        placeholders=placeholders, interaction=interaction, ctx=ctx)
-
+                            break
                         else:
                             roleAdded[role].append(resUser)
                 hasData = False
@@ -396,6 +402,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                                                            f"{role.name} : {role.id} to user " +
                                                            f"{resUser.name} : {resUser.id} for reason {reason}"},
                                                        placeholders=placeholders, interaction=interaction, ctx=ctx)
+                            break
                         else:
                             roleRemoved[role].append(resUser)
                 hasData = False
@@ -455,6 +462,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                                                        f"Couldn't timeout user " +
                                                        f"{resUser.name} : {resUser.id} to date {timeout_datetime}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         timeoutedMembers.append(resUser)
                 if duration > 0 and len(timeoutedMembers) > 0:
@@ -491,6 +499,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                                                         f"{resUser.name} : {resUser.id} for reason {reason}",
                                                     "error": e},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         deafenMembers.append(resUser)
 
@@ -527,6 +536,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                                                        f"Couldn't undeafen user " +
                                                        f"{resUser.name} : {resUser.id} for reason {reason}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         removeDeafenMembers.append(resUser)
 
@@ -564,6 +574,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                                                         f"{resUser.name} : {resUser.id} for reason {reason}",
                                                     "error": e},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         removeMutedMembers.append(resUser)
 
@@ -600,6 +611,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                                                     "message": f"Couldn't unmute user " +
                                                                f"{resUser.name} : {resUser.id} for reason {reason}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         removeMutedMembers.append(resUser)
 
@@ -633,7 +645,8 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
             break
 
         if guildToDo not in ["role_create", "role_delete", "role_edit", "overview", "category_create",
-                             "category_delete", "channel_create", "category_edit", "channel_delete", "channel_edit"]:
+                             "category_delete", "channel_create", "category_edit", "channel_delete", "channel_edit",
+                             "emoji_create", "emoji_delete", "emoji_edit"]:
             continue
 
         executedPath = await handleExecutionPathFormat(executedPath, guildToDo)
@@ -652,7 +665,7 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                                                    f"{rolesData.get('name')} for reason {rolesData.get('reason')} "
                                                    f"in guild {guild_name} : {guild_id}"},
                                                placeholders=placeholders, interaction=interaction, ctx=ctx)
-                    continue
+                    break
                 duration: int = int(rolesData.get("duration", -1))
                 if duration > 0:
                     defaultArguments["duration"] = duration
@@ -672,6 +685,7 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                                                        f"for reason {rolesData.get('reason')} in guild " +
                                                        f"{guild_name} : {guild_id}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         roles.append(selectedRole)
                 duration: int = int(rolesData.get("duration", -1))
@@ -696,6 +710,7 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                                                        f"for reason {rolesData.get('reason')} " +
                                                        f"in guild {guild_name} : {guild_id}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         edited[role] = prevStatus
                 duration: int = int(rolesData.get("duration", -1))
@@ -740,7 +755,6 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                                                    f" for reason {categoryData.get('reason')} " +
                                                    f"in guild {guild_name} : {guild_id}"},
                                                placeholders=placeholders, interaction=interaction, ctx=ctx)
-
                     continue
                 duration: int = int(categoryData.get("duration", -1))
                 if duration > 0:
@@ -764,6 +778,7 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                                                                f" for reason {reason} " +
                                                                f"in guild {guild_name} : {guild_id}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         deletedCategories.append(category)
 
@@ -790,6 +805,7 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                                                        f" for reason {categoryData.get('reason')} " +
                                                        f"in guild {guild_name} : {guild_id}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         editedCategories[category] = categoryPrevData
 
@@ -834,6 +850,7 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                                                        f" for reason {reason} " +
                                                        f"in guild {guild_name} : {guild_id}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         deletedChannels.append(channel)
                 duration: int = int(channelData.get("duration", -1))
@@ -859,6 +876,7 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                                                        f" for reason {channelData.get('reason')} " +
                                                        f"in guild {guild_name} : {guild_id}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
                     else:
                         editedChannels[channel] = channelPrevData
 
@@ -868,6 +886,72 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                     startBackgroundTask(defaultArguments, function=actionChannelEdit,
                                         functionArgs=[editedChannels,
                                                       str(channelData.get("channel_edit_reason", ""))])
+        elif guildToDo == "emoji_create":
+            for i in range(len(listData)):
+                emojiData = listData[i]
+                try:
+                    emoji = await utils.createEmoji(emojiData, guild)
+                except Exception as e:
+                    await messages.handleError(bot, commandName, executedPath,
+                                               {"error": e, "message":
+                                                   f"Couldn't create emoji {emojiData.get('name')}"
+                                                   f" for reason {emojiData.get('reason')} " +
+                                                   f"in guild {guild_name} : {guild_id}"},
+                                               placeholders=placeholders, interaction=interaction, ctx=ctx)
+                    continue
+                duration: int = int(emojiData.get("duration", -1))
+                if duration > 0 and len(emojiData) > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(defaultArguments, function=utils.deleteEmoji,
+                                        functionArgs=[emoji, str(emojiData.get("emoji_delete_reason", ""))])
+        elif guildToDo == "emoji_delete":
+            for i in range(len(listData)):
+                emojiData = listData[i]
+                deletedEmojis: List[discord.Emoji] = []
+                reason = str(emojiData.get("reason", ""))
+                emojis = await utils.getEmojis(emojiData, guild)
+                for emoji in emojis:
+                    try:
+                        await utils.deleteEmoji(emoji, reason=reason)
+                    except Exception as e:
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e, "message":
+                                                       f"Couldn't delete emoji {emojiData.get('name')}"
+                                                       f" for reason {emojiData.get('reason')} " +
+                                                       f"in guild {guild_name} : {guild_id}"},
+                                                   placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
+                    else:
+                        deletedEmojis.append(emoji)
+                duration: int = int(emojiData.get("duration", -1))
+                if duration > 0 and len(emojiData) > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(defaultArguments, function=actionCreateEmojis,
+                                        functionArgs=[deletedEmojis, str(emojiData.get("emoji_create_reason", ""))])
+        elif guildToDo == "emoji_edit":
+            for i in range(len(listData)):
+                emojiData = listData[i]
+                editedEmojis: Dict[discord.Emoji, Dict] = dict()
+                emojis = await utils.getEmojis(emojiData, guild)
+                for emoji in emojis:
+                    prevData = utils.getEmojiData(emoji)
+                    try:
+                        await utils.editEmoji(editedEmojis, emoji)
+                    except Exception as e:
+                        await messages.handleError(bot, commandName, executedPath,
+                                                   {"error": e, "message":
+                                                       f"Couldn't edit emoji {emoji.name}"
+                                                       f" for reason {emojiData.get('reason')} " +
+                                                       f"in guild {guild_name} : {guild_id}"},
+                                                   placeholders=placeholders, interaction=interaction, ctx=ctx)
+                        break
+                    else:
+                        editedEmojis[emoji] = prevData
+                duration: int = int(emojiData.get("duration", -1))
+                if duration > 0 and len(emojiData) > 0:
+                    defaultArguments["duration"] = duration
+                    startBackgroundTask(defaultArguments, function=actionCreateEmojis,
+                                        functionArgs=[actionEditEmojis, str(emojiData.get("emoji_edit_reason", ""))])
 
 
 async def handleExecutionPathFormat(executedPath, guildToDo):

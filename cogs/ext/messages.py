@@ -1,12 +1,4 @@
-from __future__ import annotations
-
-import discord
-from discord.ext import commands
-import cogs.ext.utils.utils as utils
-import cogs.ext.utils.buttons as buttons
-import cogs.ext.utils.actions as actions
-import cogs.ext.utils.placeholders as placeholders_util
-
+from cogs.ext.imports import *
 
 def isEmbedEph(embed: discord.Embed, eph: str) -> bool:
     return embed is not None and utils.configManager.isActivePlaceholder(eph) and eph in embed.title
@@ -148,7 +140,7 @@ async def sendResponse(mainData: dict, DMUser: discord.User | None, interaction:
 async def MainBuild(bot: commands.Bot, commandName: str, executionPath: str, placeholders: dict,
                     allMessages: list | None = None, interaction: discord.Interaction | None = None,
                     ctx: discord.ext.commands.context.Context | None = None):
-    placeholders = placeholders_util.addDefaultPlaceholder(placeholders, interaction=interaction, ctx=ctx)
+    placeholders = placeholders_utils.addDefaultPlaceholder(placeholders, interaction=interaction, ctx=ctx)
     multiMessage = dict()
     if allMessages is None:
         commandMessages = utils.configManager.getCommandData(commandName).get("message_names", [])
@@ -251,7 +243,7 @@ def buildMessageData(commandName: str, msg: str, placeholders: dict) -> list:
     message: list = utils.configManager.getCommandMessages(commandName, msg).copy()
     if len(message) > 0:
         for i in range(len(message)):
-            message[i] = placeholders_util.usePlaceholders(message[i], placeholders)
+            message[i] = placeholders_utils.usePlaceholders(message[i], placeholders)
     return message
 
 
@@ -307,23 +299,23 @@ async def buildEmbed(bot: commands.Bot, command: str, message_key: str, executio
         embed = discord.Embed()
         for key, value in data.items():
             if key == utils.configManager.getEmbedTitle():
-                embed.title = placeholders_util.usePlaceholders(value, placeholders)
+                embed.title = placeholders_utils.usePlaceholders(value, placeholders)
             elif key == utils.configManager.getEmbedAuthorName():
-                embed.author.name = placeholders_util.usePlaceholders(value, placeholders)
+                embed.author.name = placeholders_utils.usePlaceholders(value, placeholders)
             elif key == utils.configManager.getEmbedAuthorUrl():
-                embed.author.url = placeholders_util.usePlaceholders(value, placeholders)
+                embed.author.url = placeholders_utils.usePlaceholders(value, placeholders)
             elif key == utils.configManager.getEmbedAuthorIconUrl():
-                embed.author.icon_url = placeholders_util.usePlaceholders(value, placeholders)
+                embed.author.icon_url = placeholders_utils.usePlaceholders(value, placeholders)
             elif key == utils.configManager.getEmbedFooter():
-                embed.footer.text = placeholders_util.usePlaceholders(value, placeholders)
+                embed.footer.text = placeholders_utils.usePlaceholders(value, placeholders)
             elif key == utils.configManager.getEmbedFooterIconUrl():
-                embed.footer.icon_url = placeholders_util.usePlaceholders(value, placeholders)
+                embed.footer.icon_url = placeholders_utils.usePlaceholders(value, placeholders)
             elif key == utils.configManager.getEmbedImageUrl():
-                embed.image.url = placeholders_util.usePlaceholders(value, placeholders)
+                embed.image.url = placeholders_utils.usePlaceholders(value, placeholders)
             elif key == utils.configManager.getEmbedDescription():
-                embed.description = placeholders_util.usePlaceholders(value, placeholders)
+                embed.description = placeholders_utils.usePlaceholders(value, placeholders)
             elif key == utils.configManager.getEmbedColor():
-                embed.colour = utils.getColour(placeholders_util.usePlaceholders(value, placeholders))
+                embed.colour = utils.getColour(placeholders_utils.usePlaceholders(value, placeholders))
             elif key == utils.configManager.getEmbedFields():
                 notinlinePlaceholder = utils.configManager.getNotInLinePlaceholder()
                 if not isinstance(value, dict):
@@ -333,8 +325,8 @@ async def buildEmbed(bot: commands.Bot, command: str, message_key: str, executio
                                     "'" + utils.configManager.getEmbedFields() + "': {'FieldName': 'FieldValue " +
                                     notinlinePlaceholder + "'}")
                 for k, v in data.get(utils.configManager.getEmbedFields()).items():
-                    v = placeholders_util.usePlaceholders(v, placeholders)
-                    k = placeholders_util.usePlaceholders(k, placeholders)
+                    v = placeholders_utils.usePlaceholders(v, placeholders)
+                    k = placeholders_utils.usePlaceholders(k, placeholders)
                     if notinlinePlaceholder in v and utils.configManager.isActivePlaceholder(notinlinePlaceholder):
                         embed.add_field(name=k, value=v, inline=False)
                     else:

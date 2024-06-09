@@ -1,10 +1,4 @@
-from __future__ import annotations
-
-import discord
-from discord.ext import commands
-import cogs.ext.utils.utils as utils
-import cogs.ext.utils.actions as actions
-import cogs.ext.utils.placeholders as placeholders_utils
+from cogs.ext.imports import *
 
 
 class ViewButton(discord.ui.Button):
