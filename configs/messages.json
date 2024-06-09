@@ -1,11 +1,11 @@
 {
   "views": {
-    "mymessage1": {
+    "buttons": {
       "timeout": null,
       "mybutton": {
         "style": "grey",
         "custom_id": "2q442525",
-        "actions": ["idk"]
+        "actions": ["timeout_bot"]
       }
     }
   },

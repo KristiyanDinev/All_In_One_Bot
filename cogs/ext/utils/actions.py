@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
 import discord
@@ -81,7 +81,9 @@ async def handleActionCommands(bot: commands.Bot, commandsData: list, executedPa
                     break
 
 
-def startBackgroundTask(**taskArgs):
+def startBackgroundTask(taskArgs: dict, function = None, functionArgs = None):
+    taskArgs["function"] = function
+    taskArgs["functionArgs"] = functionArgs
     async def wait(tasks: dict):
         try:
             await asyncio.sleep(tasks["duration"])
@@ -257,7 +259,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                     else:
                         usersBanned.append(user)
 
-                for userToBan in utils.getUsers(userDoData, guild):
+                for userToBan in utils.getMembers(userDoData, guild):
                     try:
                         await utils.banUser(userToBan, reason=reason)
                     except Exception as e:
@@ -270,9 +272,8 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                 duration: int = int(userDoData.get("duration", -1))
                 if duration > 0 and len(usersBanned) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionUnbanUsers,
-                                        functionArgs=[usersBanned, str(userDoData.get("unban_reason", ""))],
-                                        **defaultArguments)
+                    startBackgroundTask(defaultArguments, function=actionUnbanUsers,
+                                        functionArgs=[usersBanned, str(userDoData.get("unban_reason", ""))])
         elif userDo == "unban":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
@@ -280,38 +281,27 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                 reason = str(userDoData.get("reason", ""))
 
                 usersUnbanned: list = []
-                if bool(userDoData.get("interact_both", True)):
-                    try:
-                        await utils.unbanUser(user, reason=reason)
-                    except Exception as e:
-                        await messages.handleError(bot, commandName, executedPath,
-                                                   {"error": e, "message":
-                                                       f"Couldn't unban user {user.name} : {user.id} for reason {reason}"},
-                                                   placeholders=placeholders, interaction=interaction, ctx=ctx)
-                    else:
-                        usersUnbanned.append(user)
-
-                for resUser in utils.getUsers(userDoData, guild):
+                for resUser in utils.getBannedMembers(userDoData, guild):
                     try:
                         await utils.unbanUser(resUser, reason=reason)
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e,
                                                     "message":
-                                                        f"Couldn't unban user {resUser.name} : {resUser.id} for reason {reason}"},
+                                                        f"Couldn't unban user "+
+                                                        f"{resUser.name} : {resUser.id} for reason {reason}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
                     else:
                         usersUnbanned.append(user)
 
                 if duration > 0 and len(usersUnbanned) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionBanUsers,
-                                        functionArgs=[usersUnbanned, str(userDoData.get("unban_reason", ""))],
-                                        **defaultArguments)
+                    startBackgroundTask(defaultArguments, function=actionBanUsers,
+                                        functionArgs=[usersUnbanned, str(userDoData.get("unban_reason", ""))])
         elif userDo == "kick":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
-                users: list = utils.getUsers(userDoData, guild)
+                users: list = utils.getMembers(userDoData, guild)
                 reason = str(userDoData.get("reason", ""))
                 if bool(userDoData.get("interact_both", True)):
                     try:
@@ -336,7 +326,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
                 duration: int = int(userDoData.get("duration", -1))
-                users: list = utils.getUsers(userDoData, guild)
+                users: list = utils.getMembers(userDoData, guild)
                 reason = str(userDoData.get("reason", ""))
 
                 roleAdded: dict = dict()
@@ -372,14 +362,13 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                         break
                 if duration > 0 and hasData:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionRemoveUserRoles,
-                                        functionArgs=[roleAdded, str(userDoData.get("role_remove_reason", ""))],
-                                        **defaultArguments)
+                    startBackgroundTask(defaultArguments, function=actionRemoveUserRoles,
+                                        functionArgs=[roleAdded, str(userDoData.get("role_remove_reason", ""))])
         elif userDo == "role_remove":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
                 duration: int = int(userDoData.get("duration", -1))
-                users: list = utils.getUsers(userDoData, guild)
+                users: list = utils.getMembers(userDoData, guild)
                 reason = str(userDoData.get("reason", ""))
 
                 roleRemoved: dict = dict()
@@ -416,9 +405,8 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                         break
                 if duration > 0 and hasData:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionAddUserRoles,
-                                        functionArgs=[roleRemoved, str(userDoData.get("role_add_reason", ""))],
-                                        **defaultArguments)
+                    startBackgroundTask(defaultArguments, function=actionAddUserRoles,
+                                        functionArgs=[roleRemoved, str(userDoData.get("role_add_reason", ""))])
         elif userDo == "timeout":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
@@ -426,47 +414,54 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                 reason = str(userDoData.get("reason", ""))
                 if "until" not in userDoData.keys():
                     await messages.handleError(bot, commandName, executedPath,
-                                               "Until data is invalid! Format expected: YYYY-MM-DDTHH:MM:SS",
+                                               "Until data is invalid! Format expected: " +
+                                               "YEAR-MOUNT-DAYTHOURS:MINS:SECONDS Like: 2024-06-09T04:12:52",
                                                placeholders=placeholders, interaction=interaction, ctx=ctx)
                     break
                 else:
                     try:
-                        strptime = datetime.strptime(str(userDoData.get("until")), "YYYY-MM-DDTHH:MM:SS")
+                        until_datetime = datetime.strptime(str(userDoData.get("until")),
+                                                           "YYYY-MM-DDTHH:MM:SS")
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
-                                                       "Until data is invalid! Format expected: YYYY-MM-DDTHH:MM:SS"},
+                                                       "Until data is invalid! Format expected: " +
+                                                       "YEAR-MOUNT-DAYTHOURS:MINS:SECONDS Like: 2024-06-09T04:12:52"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
                         break
+                timeout_datetime = datetime.now() + timedelta(
+                    days=until_datetime.year * 365 + until_datetime.month * 30 +
+                         until_datetime.day, hours=until_datetime.hour,
+                    minutes=until_datetime.minute, seconds=until_datetime.second)
                 timeoutedMembers: list = []
                 if bool(userDoData.get("interact_both", True)):
                     try:
-                        await utils.timeoutUser(user, strptime, reason=reason)
+                        await utils.timeoutUser(user, datetime.now().strptime, reason=reason)
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
-                                                       f"Couldn't timeout user {user.name} : {user.id} to date {strptime}"},
+                                                       f"Couldn't timeout user {user.name} : {user.id} to date " +
+                                                       f"{timeout_datetime}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
 
                     else:
                         timeoutedMembers.append(user)
-                for resUser in utils.getUsers(userDoData, guild):
+                for resUser in utils.getMembers(userDoData, guild):
                     try:
-                        await utils.timeoutUser(resUser, strptime, reason=reason)
+                        await utils.timeoutUser(resUser, timeout_datetime, reason=reason)
                     except Exception as e:
                         await messages.handleError(bot, commandName, executedPath,
                                                    {"error": e, "message":
                                                        f"Couldn't timeout user " +
-                                                       f"{resUser.name} : {resUser.id} to date {strptime}"},
+                                                       f"{resUser.name} : {resUser.id} to date {timeout_datetime}"},
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
                     else:
                         timeoutedMembers.append(resUser)
                 if duration > 0 and len(timeoutedMembers) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionRemoveUserTimeout,
+                    startBackgroundTask(defaultArguments, function=actionRemoveUserTimeout,
                                         functionArgs=[timeoutedMembers,
-                                                      str(userDoData.get("timeout_remove_reason", ""))],
-                                        **defaultArguments)
+                                                      str(userDoData.get("timeout_remove_reason", ""))])
         elif userDo == "deafen":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
@@ -486,7 +481,7 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
                                                    placeholders=placeholders, interaction=interaction, ctx=ctx)
                     else:
                         deafenMembers.append(user)
-                for resUser in utils.getUsers(userDoData, guild):
+                for resUser in utils.getMembers(userDoData, guild):
                     try:
                         await utils.userDeafen(resUser, True, reason=reason)
                     except Exception as e:
@@ -501,14 +496,13 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
 
                 if duration > 0 and len(deafenMembers) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionRemoveUserDeafen,
-                                        functionArgs=[deafenMembers, str(userDoData.get("deafen_remove_reason", ""))],
-                                        **defaultArguments)
+                    startBackgroundTask(defaultArguments, function=actionRemoveUserDeafen,
+                                        functionArgs=[deafenMembers, str(userDoData.get("deafen_remove_reason", ""))])
         elif userDo == "deafen_remove":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
                 duration: int = int(userDoData.get("duration", -1))
-                users: list = utils.getUsers(userDoData, guild)
+                users: list = utils.getMembers(userDoData, guild)
                 reason = str(userDoData.get("reason", ""))
 
                 removeDeafenMembers: list = []
@@ -538,14 +532,13 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
 
                 if duration > 0 and len(removeDeafenMembers) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionUserDeafen,
-                                        functionArgs=[removeDeafenMembers, str(userDoData.get("deafen_reason", ""))],
-                                        **defaultArguments)
+                    startBackgroundTask(defaultArguments, function=actionUserDeafen,
+                                        functionArgs=[removeDeafenMembers, str(userDoData.get("deafen_reason", ""))])
         elif userDo == "mute":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
                 duration: int = int(userDoData.get("duration", -1))
-                users: list = utils.getUsers(userDoData, guild)
+                users: list = utils.getMembers(userDoData, guild)
                 reason = str(userDoData.get("reason", ""))
                 removeMutedMembers: list = []
 
@@ -576,15 +569,14 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
 
                 if duration > 0 and len(removeMutedMembers) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionRemoveUserMute,
+                    startBackgroundTask(defaultArguments, function=actionRemoveUserMute,
                                         functionArgs=[removeMutedMembers,
-                                                      str(userDoData.get("mute_remove_reason", ""))],
-                                        **defaultArguments)
+                                                      str(userDoData.get("mute_remove_reason", ""))])
         elif userDo == "mute_remove":
             for i in range(len(userDoDataList)):
                 userDoData = userDoDataList[i]
                 duration: int = int(userDoData.get("duration", -1))
-                users: list = utils.getUsers(userDoData, guild)
+                users: list = utils.getMembers(userDoData, guild)
                 reason = str(userDoData.get("reason", ""))
                 removeMutedMembers: list = []
                 if bool(userDoData.get("interact_both", True)):
@@ -613,9 +605,8 @@ async def handleUser(userData: dict, bot: commands.Bot, commandName: str,
 
                 if duration > 0 and len(removeMutedMembers) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionUserMute,
-                                        functionArgs=[removeMutedMembers, str(userDoData.get("mute_reason", ""))],
-                                        **defaultArguments)
+                    startBackgroundTask(defaultArguments, function=actionUserMute,
+                                        functionArgs=[removeMutedMembers, str(userDoData.get("mute_reason", ""))])
 
 
 async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
@@ -642,7 +633,7 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
             break
 
         if guildToDo not in ["role_create", "role_delete", "role_edit", "overview", "category_create",
-                             "category_delete", "channel_create", "channel_delete", "channel_edit"]:
+                             "category_delete", "channel_create", "category_edit", "channel_delete", "channel_edit"]:
             continue
 
         executedPath = await handleExecutionPathFormat(executedPath, guildToDo)
@@ -665,9 +656,8 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                 duration: int = int(rolesData.get("duration", -1))
                 if duration > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=utils.deleteRole,
-                                        functionArgs=[role, str(rolesData.get("role_delete_reason", ""))],
-                                        **defaultArguments)
+                    startBackgroundTask(defaultArguments, function=utils.deleteRole,
+                                        functionArgs=[role, str(rolesData.get("role_delete_reason", ""))])
         elif guildToDo == "role_delete":
             for i in range(len(listData)):
                 rolesData = listData[i]
@@ -687,11 +677,10 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                 duration: int = int(rolesData.get("duration", -1))
                 if duration > 0 and len(roles) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionCreateRole,
+                    startBackgroundTask(defaultArguments, function=actionCreateRole,
                                         functionArgs=[roles, str(rolesData.get("role_create_reason", "")),
                                                       bool(rolesData.get("give_back_roles_to_users", False)),
-                                                      str(rolesData.get("give_back_reason", "")), guild],
-                                        **defaultArguments)
+                                                      str(rolesData.get("give_back_reason", "")), guild])
         elif guildToDo == "role_edit":
             for i in range(len(listData)):
                 rolesData = listData[i]
@@ -712,9 +701,8 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                 duration: int = int(rolesData.get("duration", -1))
                 if duration > 0 and len(edited) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionRoleEdit,
-                                        functionArgs=[edited, str(rolesData.get("role_edit_reason", ""))],
-                                        **defaultArguments)
+                    startBackgroundTask(defaultArguments, function=actionRoleEdit,
+                                        functionArgs=[edited, str(rolesData.get("role_edit_reason", ""))])
         elif guildToDo == "overview":
             for i in range(len(listData)):
                 overviewData = listData[i]
@@ -738,9 +726,8 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                 duration: int = int(overviewData.get("duration", -1))
                 if duration > 0 and len(prevData) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=utils.editGuild,
-                                        functionArgs=[prevData, guild, str(overviewData.get("guild_edit_reason", ""))],
-                                        **defaultArguments)
+                    startBackgroundTask(defaultArguments, function=utils.editGuild,
+                                        functionArgs=[prevData, guild, str(overviewData.get("guild_edit_reason", ""))])
         elif guildToDo == "category_create":
             for i in range(len(listData)):
                 categoryData = listData[i]
@@ -758,9 +745,8 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                 duration: int = int(categoryData.get("duration", -1))
                 if duration > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=utils.deleteCategory,
-                                        functionArgs=[category, str(categoryData.get("category_delete_reason", ""))],
-                                        **defaultArguments)
+                    startBackgroundTask(defaultArguments, function=utils.deleteCategory,
+                                        functionArgs=[category, str(categoryData.get("category_delete_reason", ""))])
         elif guildToDo == "category_delete":
             for i in range(len(listData)):
                 categoryData = listData[i]
@@ -784,10 +770,9 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                 duration: int = int(categoryData.get("duration", -1))
                 if duration > 0 and len(deletedCategories) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionCategoryCreate,
+                    startBackgroundTask(defaultArguments, function=actionCategoryCreate,
                                         functionArgs=[deletedCategories,
-                                                      str(categoryData.get("category_delete_reason", "")), guild],
-                                        **defaultArguments)
+                                                      str(categoryData.get("category_delete_reason", "")), guild])
         elif guildToDo == "category_edit":
             for i in range(len(listData)):
                 categoryData = listData[i]
@@ -811,10 +796,9 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                 duration: int = int(categoryData.get("duration", -1))
                 if duration > 0 and len(editedCategories) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionCategoryEdit,
+                    startBackgroundTask(defaultArguments, function=actionCategoryEdit,
                                         functionArgs=[editedCategories,
-                                                      str(categoryData.get("category_edit_reason", ""))],
-                                        **defaultArguments)
+                                                      str(categoryData.get("category_edit_reason", ""))])
         elif guildToDo == "channel_create":
             for i in range(len(listData)):
                 channelData = listData[i]
@@ -832,10 +816,9 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                 duration: int = int(channelData.get("duration", -1))
                 if duration > 0 and len(channels) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionChannelDelete,
+                    startBackgroundTask(defaultArguments, function=actionChannelDelete,
                                         functionArgs=[channels,
-                                                      str(channelData.get("channel_delete_reason", ""))],
-                                        **defaultArguments)
+                                                      str(channelData.get("channel_delete_reason", ""))])
         elif guildToDo == "channel_delete":
             for i in range(len(listData)):
                 channelData = listData[i]
@@ -856,10 +839,9 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                 duration: int = int(channelData.get("duration", -1))
                 if duration > 0 and len(deletedChannels) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionChannelCreate,
+                    startBackgroundTask(defaultArguments, function=actionChannelCreate,
                                         functionArgs=[deletedChannels,
-                                                      str(channelData.get("channel_create_reason", ""))],
-                                        **defaultArguments)
+                                                      str(channelData.get("channel_create_reason", ""))])
         elif guildToDo == "channel_edit":
             for i in range(len(listData)):
                 channelData = listData[i]
@@ -883,10 +865,9 @@ async def handleGuild(guildData: dict, bot: commands.Bot, commandName: str,
                 duration: int = int(channelData.get("duration", -1))
                 if duration > 0 and len(editedChannels) > 0:
                     defaultArguments["duration"] = duration
-                    startBackgroundTask(function=actionChannelEdit,
+                    startBackgroundTask(defaultArguments, function=actionChannelEdit,
                                         functionArgs=[editedChannels,
-                                                      str(channelData.get("channel_edit_reason", ""))],
-                                        **defaultArguments)
+                                                      str(channelData.get("channel_edit_reason", ""))])
 
 
 async def handleExecutionPathFormat(executedPath, guildToDo):
@@ -932,5 +913,6 @@ async def handleErrorActions(bot: commands.Bot, errorPath: str, interaction: dis
     for action in utils.configManager.getErrorActions(errorPath):
         actionData[action] = utils.configManager.getActionData(action).copy()
     await handleAllActions(bot, actionData, interaction=interaction, ctx=ctx, placeholders=placeholders)
+
 
 

@@ -169,7 +169,7 @@ async def createRole(roleData: dict, guild: discord.Guild) -> discord.Role:
     if pos.isdigit():
         await role.edit(position=int(pos))
 
-    for user in getUsers(roleData, guild):
+    for user in getMembers(roleData, guild):
         await giveRoleToUser(user, role, str(roleData.get("give_reason", "")))
     return role
 
@@ -187,7 +187,7 @@ async def createRoleNoDisplayIcon(roleData: dict, guild: discord.Guild) -> disco
         if pos.isdigit():
             await role.edit(position=int(pos))
 
-        for user in getUsers(roleData, guild):
+        for user in getMembers(roleData, guild):
             await giveRoleToUser(user, role, str(roleData.get("give_reason", "")))
         return role
     except Exception:
@@ -511,8 +511,6 @@ async def editGuild(guildData: dict, guild: discord.Guild, reason: str = ""):
         elif key == "community":
             await guild.edit(reason=reason, community=bool(guildData.get("community")))
 
-    return success
-
 
 def getTextChannel(guild: discord.Guild, channelId: int) -> discord.TextChannel | None:
     if channelId == 0:
@@ -521,29 +519,43 @@ def getTextChannel(guild: discord.Guild, channelId: int) -> discord.TextChannel 
     return channel if type(channel) == discord.TextChannel else None
 
 
-def getUsers(userData: dict, guild: discord.Guild) -> List[discord.Member]:
+def getBannedMembers(userData: dict, guild: discord.Guild) -> List[discord.Member]:
+    userIds, userNames = getUserSearchData(userData)
+    members = []
+    async for banned in guild.bans():
+        user = banned[0]
+        if user is not None and (user.id in userIds or user.name in userNames):
+            members.append(user)
+    return members
+
+
+def getUserSearchData(userData) -> tuple:
     userIds = userData.get("user_id")
     userNames = userData.get("user_name")
     if isinstance(userIds, int):
         userIds = [userIds]
     elif not isinstance(userIds, list):
         userIds = []
-
     if isinstance(userNames, str):
         userNames = [userNames]
     elif not isinstance(userNames, list):
         userNames = []
+    return userIds, userNames
 
-    users: list = []
+
+def getMembers(userData: dict, guild: discord.Guild) -> List[discord.Member]:
+    userIds, userNames = getUserSearchData(userData)
+
+    members: list = []
     for ids in userIds:
         member: discord.Member | None = guild.get_member(ids)
         if member is not None:
-            users.append(member)
+            members.append(member)
     for name in userNames:
         member: discord.Member | None = discord.utils.get(guild.members, name=name)
         if member is not None:
-            users.append(member)
-    return users
+            members.append(member)
+    return members
 
 
 async def createCategory(categoryData: dict, guild: discord.Guild) -> discord.CategoryChannel:
@@ -572,7 +584,7 @@ def getCategoryData(category: discord.CategoryChannel) -> dict:
     return data
 
 
-async def deleteCategory(category: discord.CategoryChannel, reason: str = "") -> bool:
+async def deleteCategory(category: discord.CategoryChannel, reason: str = ""):
     await category.delete(reason=reason)
 
 
@@ -595,7 +607,7 @@ def getPermissionsMapping(permissions: dict, guild: discord.Guild) -> Mapping[Un
     for user in users:
         if not isinstance(user, dict):
             continue
-        for u in getUsers(user, guild):
+        for u in getMembers(user, guild):
             perms = user.get("permissions")
             if not isinstance(perms, dict):
                 continue

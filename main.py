@@ -93,9 +93,6 @@ async def on_ready():
                                        placeholders={utils.configManager.getUsernamePlaceholder(): bot.user.name,
                                                      utils.configManager.getNumberPlaceholder(): bot.user.id},
                                        interaction=None, ctx=None)
-    print("message", "success" if res["message"] else "failed")
-    print("error", "success" if res["error"] else "no error / failed")
-    print("error_actions", "success" if res["error_actions"] else " no error / failed")
 
 
 @bot.command()
@@ -107,9 +104,6 @@ async def sync(ctx):
     res = await messages.handleMessage(bot, "sync", "sync",
                                        placeholders={utils.configManager.getNumberPlaceholder(): str(len(synced))},
                                        interaction=None, DMUser=None, ctx=ctx)
-    print("message", "success" if res["message"] else "failed")
-    print("error", "success" if res["error"] else "failed")
-    print("error_actions", "success" if res["error_actions"] else "failed")
 
 
 @bot.command()
@@ -122,9 +116,6 @@ async def reload(ctx: discord.ext.commands.context.Context):
     res = await messages.handleMessage(bot, "reload", "reload",
                                        placeholders={},
                                        interaction=None, DMUser=None, ctx=ctx)
-    print("message", "success" if res["message"] else "failed")
-    print("error", "success" if res["error"] else "failed")
-    print("error_actions", "success" if res["error_actions"] else "failed")
 
 
 if __name__ == "__main__":
@@ -137,12 +128,23 @@ if __name__ == "__main__":
 
 # TODO LIST
 # + add documentation at the end of the project
+# + add actions that gets data: create backups, load backups, gets url data, built-in webscraper, get message history, get members, get banned members, get roles, get channels, get categories, get emojis, get stickers
+# + add option to save that data in database (MySQL/Postgres)
+# + add option one bot to be in multiple servers
+# + add youtube music player
+# + add custom commands (application/prefix)
+# + add custom events (on_member_voice_update..., custom conditions, custom actions based on them)
+# + add action to execute in time like every 5 seconds (make it very customizable)
+# + add option for custom cogs to be added
+# + add webhook support
+# + add emoji reactions
+# + add stickers
 # + continue with guild actions
 
-
 """
-/*
+
 Actions
+"permissions": {"roles": [{"role_id": "916359207010312242", "permissions": {"send_messages": true} }]},
 "commands": [
     {
     'command': 'mycommand',
@@ -218,7 +220,11 @@ Actions
     "kick_member_from_voice": "You kicked /username/"
 
   }
-*/
+
+
+ Because of Discord limitations I can't delete messages past 2 weeks.
+
+ If you want to clear a whole channel just right-click the channel then select "Clone Channel"
 
 
 "command_restriction": {

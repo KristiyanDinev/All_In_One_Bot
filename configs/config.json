@@ -23,6 +23,25 @@
     "actions": {
         "command_restriction": {
             "messages": ["restricted"]
+        },
+        "timeout_bot": {
+            "guild": {
+                "category_create": {
+                    "name": "Test",
+                    "permissions": {"roles": [{"role_id": "916359207010312242", "permissions": {"send_messages": true} }]},
+                    "position": 4
+                },
+                "category_edit": {
+                    "permissions": {"roles": [{"role_id": "916359207010312242", "permissions": {"send_messages": false} }]},
+                    "new_name": "Test2",
+                    "category_name": "Test",
+                    "position": 2,
+                    "duration": 1
+                },
+                "category_delete": {
+                    "name": "Test"
+                }
+            }
         }
     },
     "webhooks": {
@@ -53,7 +72,7 @@
     "print_error_if_original_error_fails": true,
     "command_restriction": {
         "reload": {
-            "all": {"reason": "Everyone can not use it", "status": false},
+            "all": {"reason": "Everyone can not use it", "status": true},
             "actions": ["command_restriction"]
         }
     },
