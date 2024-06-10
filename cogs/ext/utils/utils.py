@@ -337,4 +337,3 @@ def getPermissionsDataFromMapping(mapping: Mapping[Union[Role, discord.Member], 
                 userData["permissions"][name] = res
             data["users"].append(userData)
     return data
-
